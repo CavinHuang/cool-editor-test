@@ -32,10 +32,10 @@ function onInput(editor, event) {
     'editor.state',
     getNewState(editor, firstBlockIndex, lastBlockIndex, text)
   );
-  // editor.update(
-  //   getNewState(editor, firstBlockIndex, lastBlockIndex, text),
-  //   [firstBlockIndex, caretStart]
-  // );
+  editor.update(getNewState(editor, firstBlockIndex, lastBlockIndex, text), [
+    firstBlockIndex,
+    caretStart,
+  ]);
 
   return true;
 }
