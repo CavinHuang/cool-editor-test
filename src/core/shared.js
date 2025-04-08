@@ -46,6 +46,7 @@ export function getNewState(editor, from, to, text) {
 
   const newState = [];
   const lines = text.split('\n');
+  console.log('lines', text, lines);
   const newLines = [...textBefore, ...lines, ...textAfter];
 
   let lineIndex = 0;
