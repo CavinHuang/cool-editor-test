@@ -5,20 +5,20 @@ import {
   ordered_list,
   unordered_list,
   blockquote,
-  paragraph
+  paragraph,
 } from './basic.js';
 import parseInline from '../inline/index.js';
 import code from './code.js';
 
 const parsers = [
   heading,
-  horizontal_rule,
-  todo_item,
-  ordered_list,
-  unordered_list,
-  blockquote,
-  code,
-  paragraph
+  // horizontal_rule,
+  // todo_item,
+  // ordered_list,
+  // unordered_list,
+  // blockquote,
+  // code,
+  paragraph,
 ];
 
 export default function* parseBlock(value, typeOnly = false) {
@@ -28,8 +28,9 @@ export default function* parseBlock(value, typeOnly = false) {
   while (index < lines.length) {
     for (const parser of parsers) {
       const result = parser({
-        parseInline: typeOnly ? string => [string] : parseInline,
-        lines, index
+        parseInline: typeOnly ? (string) => [string] : parseInline,
+        lines,
+        index,
       });
       if (result) {
         index += result.length;

@@ -56,24 +56,7 @@ export default {
     const level = hashes.length;
     const Heading = `h${level}`;
 
-    return (
-      <Heading class={cls('heading', Heading)}>
-        <button
-          contenteditable='false'
-          type='button'
-          class='heading-button'
-          data-text={hashes}
-          onclick={onHeadingClick}
-          onmousedown={preventDefault /* Prevent editor focus on mobile */}
-        >
-          <div>
-            {/* Wrapper makes deleteSoftLineBackward work on Chrome */}h
-            <span class='heading-button-level'>{level}</span>
-          </div>
-        </button>
-        {content}
-      </Heading>
-    );
+    return <Heading class={cls('heading', Heading)}>{content}</Heading>;
   },
   ordered_list_item({ content: [indentation, level, markup, ...content] }) {
     return (
@@ -171,22 +154,10 @@ export default {
   },
 
   em({ content }) {
-    return (
-      <>
-        <span class={styles.inline_markup}>{content[0]}</span>
-        <em>{content.slice(1, -1)}</em>
-        <span class={styles.inline_markup}>{last(content)}</span>
-      </>
-    );
+    return <em>{content.slice(1, -1)}</em>;
   },
   strong({ content }) {
-    return (
-      <>
-        <span class={styles.inline_markup}>{content[0]}</span>
-        <strong>{content.slice(1, -1)}</strong>
-        <span class={styles.inline_markup}>{last(content)}</span>
-      </>
-    );
+    return <strong>{content.slice(1, -1)}</strong>;
   },
   link({ content: [openBrckt, text, closeBrckt, openPar, link, closePar] }) {
     return (
@@ -245,40 +216,20 @@ export default {
     );
   },
   reference({ content }) {
-    return (
-      <>
-        <span class={styles.inline_markup}>{content[0]}</span>
-        <span class={styles.reference}>{content.slice(1, -1)}</span>
-        <span class={styles.inline_markup}>{last(content)}</span>
-      </>
-    );
+    return <span class={styles.reference}>{content.slice(1, -1)}</span>;
   },
   mark({ content }) {
-    return (
-      <mark class={styles.mark}>
-        <span class={styles.mark_markup}>{content[0]}</span>
-        {content.slice(1, -1)}
-        <span class={styles.mark_markup}>{last(content)}</span>
-      </mark>
-    );
+    return <mark class={styles.mark}>{content.slice(1, -1)}</mark>;
   },
   strikethrough({ content }) {
     return (
       <span class={styles.strikethrough}>
-        {content[0]}
         <s>{content.slice(1, -1)}</s>
-        {last(content)}
       </span>
     );
   },
   underline({ content }) {
-    return (
-      <>
-        <span class={styles.inline_markup}>{content[0]}</span>
-        <u class={styles.underline}>{content.slice(1, -1)}</u>
-        <span class={styles.inline_markup}>{last(content)}</span>
-      </>
-    );
+    return <u class={styles.underline}>{content.slice(1, -1)}</u>;
   },
   tag({ content }) {
     return (

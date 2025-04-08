@@ -16,12 +16,12 @@ export default class DefaultEditor extends Editor {
 
     const plugins = [
       enterPlugin(),
-      tabPlugin(),
-      historyPlugin(),
-      highlightPlugin(),
-      formatPlugin(),
-      orderedListPlugin(),
-      dropPlugin()
+      // tabPlugin(),
+      // historyPlugin(),
+      // highlightPlugin(),
+      // formatPlugin(),
+      // orderedListPlugin(),
+      // dropPlugin()
     ];
 
     super({ element, value, plugins, renderer, parser });

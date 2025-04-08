@@ -37,10 +37,12 @@ export function getNewState(editor, from, to, text) {
     .slice(0, from)
     .map((block) => serializeState(block.content).split('\n'))
     .flat();
+  console.log('textBefore', textBefore);
   const textAfter = editor.state
     .slice(to + 1)
     .map((block) => serializeState(block.content).split('\n'))
     .flat();
+  console.log('textAfter', textAfter);
 
   const newState = [];
   const lines = text.split('\n');
@@ -300,21 +302,29 @@ export function replaceSelection(editor, text = '') {
     editor.selection
   );
 
-  const firstLine = serializeState(editor.state[firstBlock].content);
+  const firstBlockContent = editor.state[firstBlock].content;
+  let symbolLength = 0;
+  console.log('firstBlockContent', firstBlockContent);
+  if (Array.isArray(firstBlockContent) && firstBlockContent.length > 0) {
+    symbolLength = firstBlockContent[0].length;
+  }
+  const firstLine = serializeState(firstBlockContent);
   const lastLine =
     firstBlock === lastBlock
       ? firstLine
       : serializeState(editor.state[lastBlock].content);
 
-  const start = firstLine.slice(0, firstOffset) + text;
+  const endOffset = lastOffset + symbolLength;
+  const start = firstLine.slice(0, endOffset) + text;
   const newState = getNewState(
     editor,
     firstBlock,
     lastBlock,
-    start + lastLine.slice(lastOffset)
+    start + lastLine.slice(endOffset)
   );
 
   let startLines = start.split('\n').length;
+  console.log('startLines', startLines);
   const addedBlocks = newState.slice(firstBlock).findIndex((block) => {
     if (startLines <= block.length) return true;
     startLines -= block.length;

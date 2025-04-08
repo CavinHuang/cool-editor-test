@@ -8,8 +8,8 @@ import { safari, firefox } from './user-agent.js';
 function toDOM(renderer, node) {
   if (typeof node === 'string') return node;
 
-  const content = node.content &&
-    node.content.map(child => toDOM(renderer, child));
+  const content =
+    node.content && node.content.map((child) => toDOM(renderer, child));
   return renderer[node.type]({ content });
 }
 
@@ -23,20 +23,16 @@ const EVENTS = [
   'paste',
   'input',
   'keydown',
-  'keypress'
+  'keypress',
 ];
 
-const DOCUMENT_EVENTS = [
-  'selectionchange'
-];
-
+const DOCUMENT_EVENTS = ['selectionchange'];
 
 /**
  * @typedef {Object} StateNode
  * @property {String} type
  * @property {Array<StateNode|String>} content
  */
-
 
 function changeHandlers(editor, cmd) {
   for (const name of EVENTS) {
@@ -71,7 +67,7 @@ export default class Editor {
     value = '',
     renderer = [],
     plugins = [],
-    parser
+    parser,
   } = {}) {
     this._elements = [];
     Object.assign(this, { element, renderer, parser });
@@ -79,12 +75,12 @@ export default class Editor {
       firefoxPlugin,
       androidPlugin,
       defaultPlugin,
-      ...plugins
+      ...plugins,
     ].filter(Boolean);
     this._state = [];
     this.composing = false;
 
-    const getTypeOffset = type => {
+    const getTypeOffset = (type) => {
       const sel = this.element.getRootNode().getSelection();
       const block = this.selection[type + 'Block'];
       if (sel[type + 'Node'] === this.element) return 0;
@@ -104,7 +100,7 @@ export default class Editor {
       },
       get focusOffset() {
         return getTypeOffset('focus');
-      }
+      },
     };
 
     this.element.contentEditable = true;
@@ -124,6 +120,7 @@ export default class Editor {
    * @param {[Number, Number]|{ anchor: [Number, Number], focus: [Number, Number] }} caret
    */
   update(state, caret = [0, 0]) {
+    console.log('update', state, caret);
     if (!caret.anchor) {
       caret = { focus: caret, anchor: caret.slice() };
     }
@@ -138,6 +135,7 @@ export default class Editor {
     }
 
     this.state = state;
+    console.log('caret', caret);
     setOffset(this, caret);
   }
 
@@ -167,9 +165,9 @@ export default class Editor {
         // is the last child or when empty
         if (
           !el.childNodes.length ||
-          (safari || firefox) &&
-          el.lastChild &&
-          el.lastChild.contentEditable === 'false'
+          ((safari || firefox) &&
+            el.lastChild &&
+            el.lastChild.contentEditable === 'false')
         ) {
           el.append(document.createElement('br'));
         }
@@ -217,5 +215,4 @@ export default class Editor {
   destroy() {
     changeHandlers(this, 'remove');
   }
-
 }
