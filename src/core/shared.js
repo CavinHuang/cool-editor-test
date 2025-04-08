@@ -130,12 +130,13 @@ function* iterateNodes(parent) {
   while (node) {
     if (node.nodeType === Node.ELEMENT_NODE) {
       const text = node.dataset.text;
-      const prefix = node.dataset.prefix;
+      const prefix = node.dataset.prefix || '';
       yield { node, text, prefix };
       node = treeWalker.nextSibling();
     } else {
       const text = normalizeText(node.data);
-      const prefix = node.parentNode.dataset.prefix;
+      console.log('node', node, node.parentNode);
+      const prefix = node.parentNode.dataset.prefix || '';
       yield { node, text, prefix };
       node = treeWalker.nextNode();
     }
@@ -221,21 +222,17 @@ export function setOffset(editor, caret) {
 
   const startEl = editor.element.children[anchorBlock];
   const endEl = editor.element.children[focusBlock];
-  console.log('startEl', startEl);
-  console.log('endEl', endEl);
 
   const selection = editor.element.getRootNode().getSelection();
   selection.removeAllRanges();
   const range = document.createRange();
 
   const anchorPosition = getOffsetPosition(startEl, anchorOffset);
-  console.log('anchorPosition', anchorPosition);
   range.setStart(anchorPosition.node, anchorPosition.offset);
   selection.addRange(range);
 
   if (anchorBlock !== focusBlock || anchorOffset !== focusOffset) {
     const focusPosition = getOffsetPosition(endEl, focusOffset);
-    console.log('focusPosition', focusPosition);
     selection.extend(focusPosition.node, focusPosition.offset);
   }
 }
@@ -247,7 +244,7 @@ export function getOffsetPosition(el, offset) {
   if (offset < 0) return { node: el, offset: 0 };
 
   for (let { node, text, prefix } of iterateNodes(el)) {
-    if (text.length + prefix.length >= offset) {
+    if (text.length >= offset) {
       if (node.dataset && 'text' in node.dataset) {
         const prevOffset = offset;
         offset = Array.from(node.parentNode.childNodes).indexOf(node);
