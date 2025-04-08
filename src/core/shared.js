@@ -17,7 +17,7 @@ export function getChangeIndexes(editor, event) {
 
     return {
       firstBlockIndex: blockIndex,
-      lastBlockIndex: blockIndex,
+      lastBlockIndex: blockIndex
     };
   }
 
@@ -122,7 +122,7 @@ function* iterateNodes(parent) {
       acceptNode(node) {
         const accept = node.nodeType === Node.TEXT_NODE || node.dataset.text;
         return accept ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
-      },
+      }
     }
   );
 
@@ -130,11 +130,13 @@ function* iterateNodes(parent) {
   while (node) {
     if (node.nodeType === Node.ELEMENT_NODE) {
       const text = node.dataset.text;
-      yield { node, text };
+      const prefix = node.dataset.prefix;
+      yield { node, text, prefix };
       node = treeWalker.nextSibling();
     } else {
       const text = normalizeText(node.data);
-      yield { node, text };
+      const prefix = node.parentNode.dataset.prefix;
+      yield { node, text, prefix };
       node = treeWalker.nextNode();
     }
   }
@@ -219,17 +221,21 @@ export function setOffset(editor, caret) {
 
   const startEl = editor.element.children[anchorBlock];
   const endEl = editor.element.children[focusBlock];
+  console.log('startEl', startEl);
+  console.log('endEl', endEl);
 
   const selection = editor.element.getRootNode().getSelection();
   selection.removeAllRanges();
   const range = document.createRange();
 
   const anchorPosition = getOffsetPosition(startEl, anchorOffset);
+  console.log('anchorPosition', anchorPosition);
   range.setStart(anchorPosition.node, anchorPosition.offset);
   selection.addRange(range);
 
   if (anchorBlock !== focusBlock || anchorOffset !== focusOffset) {
     const focusPosition = getOffsetPosition(endEl, focusOffset);
+    console.log('focusPosition', focusPosition);
     selection.extend(focusPosition.node, focusPosition.offset);
   }
 }
@@ -240,8 +246,8 @@ export function setOffset(editor, caret) {
 export function getOffsetPosition(el, offset) {
   if (offset < 0) return { node: el, offset: 0 };
 
-  for (let { node, text } of iterateNodes(el)) {
-    if (text.length >= offset) {
+  for (let { node, text, prefix } of iterateNodes(el)) {
+    if (text.length + prefix.length >= offset) {
       if (node.dataset && 'text' in node.dataset) {
         const prevOffset = offset;
         offset = Array.from(node.parentNode.childNodes).indexOf(node);
@@ -276,7 +282,7 @@ export function orderedSelection({
   anchorBlock,
   focusBlock,
   anchorOffset,
-  focusOffset,
+  focusOffset
 }) {
   if (
     anchorBlock > focusBlock ||
@@ -286,7 +292,7 @@ export function orderedSelection({
       firstBlock: focusBlock,
       lastBlock: anchorBlock,
       firstOffset: focusOffset,
-      lastOffset: anchorOffset,
+      lastOffset: anchorOffset
     };
   }
 
@@ -294,7 +300,7 @@ export function orderedSelection({
     firstBlock: anchorBlock,
     lastBlock: focusBlock,
     firstOffset: anchorOffset,
-    lastOffset: focusOffset,
+    lastOffset: focusOffset
   };
 }
 
@@ -336,12 +342,12 @@ export function replaceSelection(editor, text = '') {
     firstBlock + addedBlocks < 0
       ? ''
       : serializeState(newState[firstBlock + addedBlocks].content)
-          .split('\n')
-          .slice(0, startLines)
-          .join('\n').length;
+        .split('\n')
+        .slice(0, startLines)
+        .join('\n').length;
 
   editor.update(newState, [
     firstBlock + addedBlocks,
-    addedText - lastLine.slice(lastOffset).length,
+    addedText - lastLine.slice(lastOffset).length
   ]);
 }

@@ -5,7 +5,7 @@ import {
   getNewState,
   serializeState,
   orderedSelection,
-  replaceSelection,
+  replaceSelection
 } from './shared.js';
 
 function onCompositionStart(editor) {
@@ -34,7 +34,7 @@ function onInput(editor, event) {
   );
   editor.update(getNewState(editor, firstBlockIndex, lastBlockIndex, text), [
     firstBlockIndex,
-    caretStart,
+    caretStart
   ]);
 
   return true;
@@ -103,7 +103,7 @@ function onBeforeInput(editor, event) {
     deleteSoftLineBackward: 'line',
     deleteSoftLineForward: 'line',
     deleteHardLineBackward: 'line',
-    deleteHardLineForward: 'line',
+    deleteHardLineForward: 'line'
   };
 
   const type = types[event.inputType];
@@ -197,8 +197,8 @@ function onBeforeUpdate(editor, state, caret) {
     state,
     caret: {
       anchor: anchor || caret.anchor,
-      focus: focus || caret.focus,
-    },
+      focus: focus || caret.focus
+    }
   };
 }
 
@@ -211,7 +211,7 @@ export default {
     beforeinput: onBeforeInput,
     copy: onCopy,
     paste: onPaste,
-    selectionchange: onSelectionChange,
+    selectionchange: onSelectionChange
   },
-  beforeupdate: onBeforeUpdate,
+  beforeupdate: onBeforeUpdate
 };

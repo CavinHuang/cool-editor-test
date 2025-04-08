@@ -6,7 +6,7 @@ import {
   Fragment,
   cls,
   last,
-  formatURL,
+  formatURL
 } from './helpers.js';
 import styles from './styles.css';
 import { get as getFileURL } from './files.js';
@@ -56,7 +56,11 @@ export default {
     const level = hashes.length;
     const Heading = `h${level}`;
 
-    return <Heading class={cls('heading', Heading)}>{content}</Heading>;
+    return (
+      <Heading class={cls('heading', Heading)} data-prefix={hashes}>
+        {content}
+      </Heading>
+    );
   },
   ordered_list_item({ content: [indentation, level, markup, ...content] }) {
     return (
@@ -277,5 +281,5 @@ export default {
         </div>
       </button>
     );
-  },
+  }
 };

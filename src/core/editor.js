@@ -23,7 +23,7 @@ const EVENTS = [
   'paste',
   'input',
   'keydown',
-  'keypress',
+  'keypress'
 ];
 
 const DOCUMENT_EVENTS = ['selectionchange'];
@@ -67,7 +67,7 @@ export default class Editor {
     value = '',
     renderer = [],
     plugins = [],
-    parser,
+    parser
   } = {}) {
     this._elements = [];
     Object.assign(this, { element, renderer, parser });
@@ -75,7 +75,7 @@ export default class Editor {
       firefoxPlugin,
       androidPlugin,
       defaultPlugin,
-      ...plugins,
+      ...plugins
     ].filter(Boolean);
     this._state = [];
     this.composing = false;
@@ -100,7 +100,7 @@ export default class Editor {
       },
       get focusOffset() {
         return getTypeOffset('focus');
-      },
+      }
     };
 
     this.element.contentEditable = true;
