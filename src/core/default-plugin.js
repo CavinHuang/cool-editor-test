@@ -27,11 +27,6 @@ function onInput(editor, event) {
     event.target === editor.element ? editor.selection.anchorOffset : -1;
   const text = getText(firstBlock);
 
-  console.log('onInput', firstBlockIndex, lastBlockIndex, caretStart, text);
-  console.log(
-    'editor.state',
-    getNewState(editor, firstBlockIndex, lastBlockIndex, text)
-  );
   editor.update(getNewState(editor, firstBlockIndex, lastBlockIndex, text), [
     firstBlockIndex,
     caretStart

@@ -120,7 +120,6 @@ export default class Editor {
    * @param {[Number, Number]|{ anchor: [Number, Number], focus: [Number, Number] }} caret
    */
   update(state, caret = [0, 0]) {
-    console.log('update', state, caret);
     if (!caret.anchor) {
       caret = { focus: caret, anchor: caret.slice() };
     }

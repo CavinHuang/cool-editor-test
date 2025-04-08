@@ -37,16 +37,13 @@ export function getNewState(editor, from, to, text) {
     .slice(0, from)
     .map((block) => serializeState(block.content).split('\n'))
     .flat();
-  console.log('textBefore', textBefore);
   const textAfter = editor.state
     .slice(to + 1)
     .map((block) => serializeState(block.content).split('\n'))
     .flat();
-  console.log('textAfter', textAfter);
 
   const newState = [];
   const lines = text.split('\n');
-  console.log('lines', text, lines);
   const newLines = [...textBefore, ...lines, ...textAfter];
 
   let lineIndex = 0;
@@ -243,7 +240,7 @@ export function setOffset(editor, caret) {
 export function getOffsetPosition(el, offset) {
   if (offset < 0) return { node: el, offset: 0 };
 
-  for (let { node, text, prefix } of iterateNodes(el)) {
+  for (let { node, text } of iterateNodes(el)) {
     if (text.length >= offset) {
       if (node.dataset && 'text' in node.dataset) {
         const prevOffset = offset;
@@ -307,28 +304,30 @@ export function replaceSelection(editor, text = '') {
   );
 
   const firstBlockContent = editor.state[firstBlock].content;
-  let symbolLength = 0;
-  console.log('firstBlockContent', firstBlockContent);
-  if (Array.isArray(firstBlockContent) && firstBlockContent.length > 0) {
-    symbolLength = firstBlockContent[0].length;
+  let firstContentStr = '';
+  if (Array.isArray(firstBlockContent)) {
+    if (firstBlockContent.length >= 1) {
+      firstContentStr = firstBlockContent[1];
+    } else {
+      firstContentStr = firstBlockContent.length > 0 ? firstBlockContent[0] : '';
+    }
   }
-  const firstLine = serializeState(firstBlockContent);
+
+  const firstLine = firstContentStr;//serializeState(firstBlockContent);
   const lastLine =
     firstBlock === lastBlock
       ? firstLine
       : serializeState(editor.state[lastBlock].content);
 
-  const endOffset = lastOffset + symbolLength;
-  const start = firstLine.slice(0, endOffset) + text;
+  const start = firstLine.slice(0, lastOffset) + text;
   const newState = getNewState(
     editor,
     firstBlock,
     lastBlock,
-    start + lastLine.slice(endOffset)
+    start + lastLine.slice(lastOffset)
   );
 
   let startLines = start.split('\n').length;
-  console.log('startLines', startLines);
   const addedBlocks = newState.slice(firstBlock).findIndex((block) => {
     if (startLines <= block.length) return true;
     startLines -= block.length;
@@ -342,7 +341,9 @@ export function replaceSelection(editor, text = '') {
         .split('\n')
         .slice(0, startLines)
         .join('\n').length;
-
+  console.log('addedText', addedText, lastLine.slice(lastOffset).length);
+  console.log('firstBlock, addedBlocks', firstBlock, addedBlocks);
+  console.log('lastLine', lastLine);
   editor.update(newState, [
     firstBlock + addedBlocks,
     addedText - lastLine.slice(lastOffset).length
