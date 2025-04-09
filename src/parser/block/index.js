@@ -5,7 +5,7 @@ import {
   ordered_list,
   unordered_list,
   blockquote,
-  paragraph,
+  paragraph
 } from './basic.js';
 import parseInline from '../inline/index.js';
 import code from './code.js';
@@ -18,7 +18,7 @@ const parsers = [
   // unordered_list,
   // blockquote,
   // code,
-  paragraph,
+  paragraph
 ];
 
 export default function* parseBlock(value, typeOnly = false) {
@@ -30,7 +30,7 @@ export default function* parseBlock(value, typeOnly = false) {
       const result = parser({
         parseInline: typeOnly ? (string) => [string] : parseInline,
         lines,
-        index,
+        index
       });
       if (result) {
         index += result.length;

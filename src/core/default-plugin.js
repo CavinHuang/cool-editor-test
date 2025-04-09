@@ -167,6 +167,7 @@ function updateCaret(editor, state, [block, offset]) {
     lineIndex -= block.length;
     return false;
   });
+  console.log('newBlock', newBlock, block);
   if (newBlock === -1) return;
   if (newBlock >= block) return;
 
@@ -174,9 +175,7 @@ function updateCaret(editor, state, [block, offset]) {
     serializeState(state[newBlock].content)
       .split('\n')
       .slice(0, block - newBlock)
-      .join('\n').length +
-    1 +
-    offset;
+      .join('\n').length + 1 + offset;
 
   return [newBlock, newOffset];
 }

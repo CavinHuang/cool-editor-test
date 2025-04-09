@@ -8,7 +8,7 @@ import {
   code,
   file,
   image,
-  tag,
+  tag
 } from './basic.js';
 
 import link from './link.js';
@@ -39,7 +39,7 @@ const parsers = [
   // tag,
   // link,
 
-  text,
+  text
 ];
 
 export default function parseInline(string) {
@@ -49,7 +49,7 @@ export default function parseInline(string) {
     tokens: [],
     parse(start, end) {
       return parseInline(string.slice(start, end));
-    },
+    }
   };
 
   while (state.index < string.length) {
