@@ -17,7 +17,7 @@ const parsers = [
   ordered_list,
   unordered_list,
   blockquote,
-  // code,
+  code,
   paragraph
 ];
 

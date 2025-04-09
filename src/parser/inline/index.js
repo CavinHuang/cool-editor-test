@@ -28,16 +28,16 @@ function text(state) {
 const parsers = [
   selfcloseTag,
   strong,
-  // em,
-  // strikethrough,
-  // underline,
-  // mark,
-  // reference,
-  // code,
-  // file,
-  // image,
+  em,
+  strikethrough,
+  underline,
+  mark,
+  reference,
+  code,
+  file,
+  image,
   tag,
-  // link,
+  link,
 
   text
 ];
