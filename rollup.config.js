@@ -9,13 +9,13 @@ export default {
   output: {
     dir: 'build',
     format: 'es',
-    sourcemap: false,
+    sourcemap: false
   },
   plugins: [
     resolve(),
     postcss({
       modules: true,
-      extract: true,
+      extract: true
     }),
     babel({
       babelrc: false,
@@ -23,13 +23,14 @@ export default {
         [
           '@babel/plugin-transform-react-jsx',
           {
-            useBuiltIns: true,
-          },
+            useBuiltIns: true
+          }
         ],
-      ],
+        '@babel/plugin-proposal-optional-chaining'
+      ]
     }),
-    commonjs(),
+    commonjs()
     // terser(),
     // cleanup(),
-  ],
+  ]
 };

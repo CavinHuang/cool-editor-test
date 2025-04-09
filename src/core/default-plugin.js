@@ -57,7 +57,6 @@ function onInput(editor, event) {
       firstBlock.dataset.prefix.length : 0)) :
     caretStart;
 
-
   editor.update(
     getNewState(
       editor, firstBlockIndex, lastBlockIndex, prefix + text + suffix

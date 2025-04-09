@@ -35,4 +35,9 @@ And there is of course support for images and files:
 [image:5457B1BB-5EB1-41D8-8C5B-85B4522A8162-62139-000178299718391D/cub.jpg]
 
 [file:999F2B01-AD94-4FE3-923E-B39C7C51962C-16057-00005A56C2010437/Writing on the web.md]
+
+| 标题1 | 标题2 | 标题3 |
+| ----- | ----- | ----- |
+| 内容1 | 内容2 | 内容3 |
+| 内容4 | 内容5 | 内容6 |
 `;

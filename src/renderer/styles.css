@@ -452,3 +452,52 @@ html, body {
   left: 14px;
   fill: var(--style-marker-text-color);
 }
+
+/* 表格包装器 */
+.table_wrapper {
+  position: relative;
+  margin: 16px 0;
+}
+
+/* 表格样式 */
+.table {
+  border-collapse: collapse;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 4px;
+}
+
+.table_header th {
+  background-color: #f2f2f2;
+  font-weight: bold;
+  text-align: left;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+}
+
+.table_body td {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  min-width: 100px;
+}
+
+.table_body tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+.table_align_left {
+  text-align: left;
+}
+
+.table_align_center {
+  text-align: center;
+}
+
+.table_align_right {
+  text-align: right;
+}
+
+/* 表格行悬停效果 */
+.table_body tr:hover {
+  background-color: #f5f5f5;
+}

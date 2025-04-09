@@ -222,10 +222,16 @@ export default {
     );
   },
   reference({ content }) {
-    return <span class={styles.reference}>{content.slice(1, -1)}</span>;
+    return <span class={styles.reference} data-prefix={content[0]} data-suffix={last(content)}>{content.slice(1, -1)}</span>;
   },
   mark({ content }) {
-    return <mark class={styles.mark}>{content.slice(1, -1)}</mark>;
+    return <mark
+      class={styles.mark}
+      data-prefix={content[0]}
+      data-suffix={last(content)}
+    >
+      {content.slice(1, -1)}
+    </mark>;
   },
   strikethrough({ content }) {
     return (

@@ -134,7 +134,7 @@ export default class Editor {
     }
 
     this.state = state;
-    console.log('caret', caret);
+    console.log('caret', caret, this);
     setOffset(this, caret);
   }
 
