@@ -9,6 +9,7 @@ import {
 } from './basic.js';
 import parseInline from '../inline/index.js';
 import code from './code.js';
+import table from './table.js';
 
 const parsers = [
   heading,
@@ -18,6 +19,7 @@ const parsers = [
   unordered_list,
   blockquote,
   code,
+  table,
   paragraph
 ];
 

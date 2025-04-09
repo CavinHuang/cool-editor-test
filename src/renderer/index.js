@@ -138,6 +138,109 @@ export default {
       </p>
     );
   },
+  table({ content }) {
+    console.log('table渲染函数接收到的内容:', JSON.stringify(content));
+
+    try {
+      // 验证内容结构
+      if (!Array.isArray(content) || content.length < 2) {
+        console.error('表格内容格式不正确', content);
+        // 返回一个错误提示，而不是破坏表格结构
+        return <p class={styles.p}>表格内容格式不正确</p>;
+      }
+
+      // 保证内容的每个部分都是数组
+      if (!Array.isArray(content[0]) || !Array.isArray(content[1])) {
+        console.error('表格头部或对齐行格式错误', content);
+        return <p class={styles.p}>表格格式错误</p>;
+      }
+
+      // 从数组格式中提取表格数据
+      const headers = content[0];
+      const aligns = content[1];
+
+      // 确保对齐列数与表头列数一致
+      const normalizedAligns = [...aligns];
+      while (normalizedAligns.length < headers.length) normalizedAligns.push('left');
+      if (normalizedAligns.length > headers.length) normalizedAligns.length = headers.length;
+
+      // 从第三个元素开始的所有元素都是表格行
+      // 过滤掉空行（所有单元格都是空字符串的行）
+      const rows = content.slice(2).filter(row => {
+        if (!Array.isArray(row)) return false;
+        return row.some(cell => cell && String(cell).trim() !== '');
+      });
+
+      console.log('过滤后表格行数:', rows.length, '表头列数:', headers.length);
+
+      // 确保所有行的单元格数量与表头一致
+      const normalizedRows = rows.map(row => {
+        if (!Array.isArray(row)) return headers.map(() => '');
+
+        // 复制原始行，确保不修改原始数据
+        const newRow = [...row];
+
+        // 如果列数不足，补充空单元格
+        while (newRow.length < headers.length) newRow.push('');
+
+        // 如果列数过多，删除多余的单元格
+        if (newRow.length > headers.length) newRow.length = headers.length;
+
+        return newRow;
+      });
+
+      // 防止空表格
+      if (headers.length === 0) {
+        return <p class={styles.p}>空表格</p>;
+      }
+
+      return (
+        <table class={styles.table}>
+          <thead>
+            <tr>
+              {headers.map((header, index) => (
+                <th
+                  class={styles.table_header}
+                  style={{ textAlign: normalizedAligns[index] }}
+                >
+                  {header || ''}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {normalizedRows.length > 0 ? (
+              normalizedRows.map(row => (
+                <tr>
+                  {row.map((cell, index) => (
+                    <td
+                      class={styles.table_cell}
+                      style={{ textAlign: normalizedAligns[index] }}
+                    >
+                      {cell || ''}
+                    </td>
+                  ))}
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td
+                  class={styles.table_cell}
+                  colSpan={headers.length}
+                  style={{ textAlign: 'center' }}
+                >
+                  (空表格)
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      );
+    } catch (error) {
+      console.error('表格渲染出错:', error);
+      return <p class={styles.p}>表格渲染错误: {error.message}</p>;
+    }
+  },
   code_block({ content: [openMarkup, language, ...content] }) {
     return (
       <code

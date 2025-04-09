@@ -462,27 +462,30 @@ html, body {
 /* 表格样式 */
 .table {
   border-collapse: collapse;
+  margin: 10px 0;
   width: 100%;
-  overflow: hidden;
-  border-radius: 4px;
+  font-size: 14px;
 }
 
-.table_header th {
-  background-color: #f2f2f2;
+.table_header {
+  border: 1px solid var(--code-stroke-color);
+  padding: 8px;
+  background-color: var(--code-background-color);
   font-weight: bold;
-  text-align: left;
-  padding: 8px 12px;
-  border: 1px solid #ddd;
 }
 
-.table_body td {
-  padding: 8px 12px;
-  border: 1px solid #ddd;
-  min-width: 100px;
+.table_cell {
+  border: 1px solid var(--code-stroke-color);
+  padding: 8px;
+  vertical-align: top;
 }
 
-.table_body tr:nth-child(even) {
-  background-color: #f9f9f9;
+.table tr:nth-child(even) {
+  background-color: rgba(249, 249, 249, 1.00);
+}
+
+.table tr:hover {
+  background-color: rgba(245, 245, 245, 1.00);
 }
 
 .table_align_left {
@@ -497,7 +500,39 @@ html, body {
   text-align: right;
 }
 
-/* 表格行悬停效果 */
-.table_body tr:hover {
-  background-color: #f5f5f5;
+/* 表格控制UI */
+.table_controls {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 5px;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.table_controls:hover {
+  opacity: 1;
+}
+
+.table_controls button {
+  background-color: var(--code-background-color);
+  border: 1px solid var(--code-stroke-color);
+  border-radius: 3px;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.table_controls button:hover {
+  background-color: rgba(235, 235, 235, 1.00);
+}
+
+/* 可编辑单元格样式 */
+.table_cell[contenteditable=true],
+.table_header[contenteditable=true] {
+  outline: 2px solid var(--accent-text-color);
+  outline-offset: -2px;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5);
+  position: relative;
+  z-index: 1;
 }

@@ -4,13 +4,94 @@ import defaultPlugin from './default-plugin.js';
 import firefoxPlugin from './firefox.js';
 import androidPlugin from './android.js';
 import { safari, firefox } from './user-agent.js';
+import { h } from '../renderer/helpers.js';
 
 function toDOM(renderer, node) {
   if (typeof node === 'string') return node;
 
+  // 对于表格节点，特殊处理以保持结构
+  if (node.type === 'table') {
+    console.log('表格节点原始内容:', JSON.stringify(node.content));
+
+    // 验证表格内容结构
+    if (!Array.isArray(node.content) || node.content.length < 2) {
+      console.error('表格内容结构无效:', node);
+      // 返回空元素而不是破坏编辑器
+      const div = document.createElement('div');
+      div.textContent = '表格格式错误';
+      return div;
+    }
+
+    if (typeof renderer.table !== 'function') {
+      console.warn('警告: 没有找到表格渲染函数', node);
+      const div = document.createElement('div');
+      div.textContent = '表格渲染器不可用';
+      return div;
+    }
+
+    try {
+      // 确保表格内容格式正确 - 深度复制以防止修改原始数据
+      const safeContent = JSON.parse(JSON.stringify(node.content));
+
+      // 确保表头是数组
+      if (!Array.isArray(safeContent[0])) {
+        safeContent[0] = [];
+      }
+
+      // 确保有对齐行信息，如果没有则创建默认值
+      if (!Array.isArray(safeContent[1])) {
+        safeContent[1] = safeContent[0].map(() => 'left');
+      }
+
+      // 确保每个数据行是有效的数组
+      for (let i = 2; i < safeContent.length; i++) {
+        if (!Array.isArray(safeContent[i])) {
+          safeContent[i] = safeContent[0].map(() => '');
+        }
+      }
+
+      // 使用deepFreeze防止渲染函数修改内容
+      const frozenContent = deepFreeze([...safeContent]);
+
+      // 渲染表格
+      return renderer.table({ content: frozenContent });
+    } catch (error) {
+      console.error('表格渲染失败:', error);
+      const div = document.createElement('div');
+      div.textContent = '表格渲染失败: ' + error.message;
+      return div;
+    }
+  }
+
+  // 对其他节点类型进行正常处理
   const content =
     node.content && node.content.map((child) => toDOM(renderer, child));
+
+  if (typeof renderer[node.type] !== 'function') {
+    console.warn(`警告: 没有找到节点类型"${node.type}"的渲染函数`, node);
+    return content || '';
+  }
+
   return renderer[node.type]({ content });
+}
+
+// 辅助函数：深度冻结对象，防止修改
+function deepFreeze(obj) {
+  // 获取目标对象的属性名
+  const propNames = Object.getOwnPropertyNames(obj);
+
+  // 在冻结目标对象之前，冻结它的每个属性
+  for (const name of propNames) {
+    const value = obj[name];
+
+    // 递归冻结嵌套对象
+    if (value && typeof value === 'object' && !Object.isFrozen(value)) {
+      deepFreeze(value);
+    }
+  }
+
+  // 冻结目标对象本身
+  return Object.freeze(obj);
 }
 
 const EVENTS = [
