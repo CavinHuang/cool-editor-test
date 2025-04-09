@@ -12,11 +12,11 @@ import code from './code.js';
 
 const parsers = [
   heading,
-  // horizontal_rule,
-  // todo_item,
-  // ordered_list,
-  // unordered_list,
-  // blockquote,
+  horizontal_rule,
+  todo_item,
+  ordered_list,
+  unordered_list,
+  blockquote,
   // code,
   paragraph
 ];

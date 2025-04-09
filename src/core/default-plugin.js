@@ -17,20 +17,53 @@ function onCompositionEnd(editor, event) {
   return onInput(editor, event);
 }
 
+// 获取当前光标的上级元素
+function getRangeFoucsNode(selection, firstBlock) {
+  const range = document.getSelection().getRangeAt(0);
+  if (!range) return null;
+  const commonAncestorContainer = range.commonAncestorContainer;
+  if (commonAncestorContainer.parentElement.dataset.prefix) {
+    return {
+      prefix: commonAncestorContainer.parentElement.dataset.prefix || '',
+      suffix: commonAncestorContainer.parentElement.dataset.suffix || ''
+    };
+  }
+  return {
+    prefix: commonAncestorContainer.parentElement.dataset.prefix || '',
+    suffix: commonAncestorContainer.parentElement.dataset.suffix || ''
+  };
+}
+
 function onInput(editor, event) {
   if (editor.composing) return;
 
   const { firstBlockIndex, lastBlockIndex } = getChangeIndexes(editor, event);
   const firstBlock = editor.element.children[firstBlockIndex];
 
+  const rangeFoucsNode = getRangeFoucsNode(editor.selection, firstBlock);
+  let prefix = '';
+  let suffix = '';
+  if (rangeFoucsNode) {
+    prefix = rangeFoucsNode.prefix;
+    suffix = rangeFoucsNode.suffix;
+  }
   const caretStart =
     event.target === editor.element ? editor.selection.anchorOffset : -1;
-  const text = getText(firstBlock);
+  const { text } = getText(firstBlock);
 
-  editor.update(getNewState(editor, firstBlockIndex, lastBlockIndex, text), [
-    firstBlockIndex,
-    caretStart
-  ]);
+  // 计算考虑前缀的光标位置
+  const adjustedCaretStart = caretStart >= 0 ?
+    (caretStart + (firstBlock.dataset && firstBlock.dataset.prefix ?
+      firstBlock.dataset.prefix.length : 0)) :
+    caretStart;
+
+
+  editor.update(
+    getNewState(
+      editor, firstBlockIndex, lastBlockIndex, prefix + text + suffix
+    ),
+    [firstBlockIndex, adjustedCaretStart]
+  );
 
   return true;
 }

@@ -1,0 +1,97 @@
+---
+description: 页面创建
+globs: 
+---
+# Next.js 14 页面构建提示词
+
+请根据以下需求生成一个完整的 Next.js 14 页面：
+
+[在这里描述设计稿或自然语言需求]
+
+## 技术要求
+
+- 使用 Next.js 14 App Router
+- TypeScript + TailwindCSS + shadcn/ui + lucide-react 技术栈
+- 优先使用 Server Components，只在必要时使用 Client Components
+- 实现服务器端数据获取和缓存优化
+- 使用 Server Actions 处理表单提交等操作
+- 遵循 Next.js 14 的最佳实践
+
+## 文件结构要求
+
+请生成以下文件结构：
+
+1. `app/(routes)/[page-path]/page.tsx` - 主页面文件
+   - 默认导出 Page 组件
+   - 实现页面级的数据获取
+   - 组织页面整体布局
+
+2. `app/(routes)/[page-path]/layout.tsx`（如需要） - 布局文件
+   - 实现页面特定的布局
+   - 处理页面级的 metadata
+
+3. `app/(routes)/[page-path]/loading.tsx`（推荐） - 加载状态
+   - 实现页面加载时的骨架屏
+   - 使用 suspense 边界优化用户体验
+
+4. `app/(routes)/[page-path]/error.tsx`（推荐） - 错误处理
+   - 实现页面级的错误处理
+   - 提供用户友好的错误提示
+
+5. `app/api/[endpoint]/route.ts`（如需要） - API 路由
+   - 实现相关的 API 端点
+   - 处理数据验证和错误处理
+
+## 数据获取要求
+
+- 使用 React Server Components 进行数据获取
+- 实现适当的数据缓存策略
+- 使用 Server Actions 处理数据修改
+- 必要时实现乐观更新
+- 处理加载和错误状态
+
+## 状态管理要求
+
+- 使用 Server Components 减少客户端状态
+- 必要时使用 zustand 管理客户端状态
+- 合理使用 React Context
+- 实现状态持久化（如需要）
+
+## 性能优化要求
+
+- 实现组件级的代码分割
+- 使用 Next.js 的图片优化功能
+- 实现适当的缓存策略
+- 优化首次加载性能
+- 实现渐进式加载
+
+## 样式要求
+
+- 优先使用 TailwindCSS 类名
+- 合理使用 shadcn/ui 组件
+- 实现响应式设计
+- 支持暗色模式（如需要）
+- 注意组件间距和对齐
+
+## 代码规范
+
+- 遵循 Next.js 14 的文件命名约定
+- 使用 TypeScript 类型定义
+- 代码需要适当的注释说明
+- 实现错误边界处理
+- 添加适当的日志记录
+
+## SEO 要求
+
+- 实现动态 metadata
+- 添加适当的结构化数据
+- 优化页面标题和描述
+- 实现合适的 robots.txt 规则
+
+请根据以上要求，生成完整的页面代码。生成的代码应当：
+
+1. 遵循 Next.js 14 的最佳实践
+2. 包含完整的类型定义
+3. 实现基础的错误处理
+4. 优化加载性能
+5. 提供良好的用户体验

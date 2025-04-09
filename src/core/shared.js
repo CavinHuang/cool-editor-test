@@ -25,6 +25,7 @@ export function getChangeIndexes(editor, event) {
   const firstBlockIndex = Math.min(anchorBlock, focusBlock);
   const lastBlockIndex = Math.max(anchorBlock, focusBlock);
 
+
   return { firstBlockIndex, lastBlockIndex };
 }
 
@@ -145,12 +146,17 @@ function* iterateNodes(parent) {
  */
 export function getText(node) {
   let text = '';
+  // 读取前缀和后缀
+  console.log('node2222', node);
+  let _node = node;
+  const prefix = node.dataset && node.dataset.prefix ? node.dataset.prefix : '';
+  const suffix = node.dataset && node.dataset.suffix ? node.dataset.suffix : '';
 
   for (const val of iterateNodes(node)) {
     text += val.text;
   }
 
-  return text;
+  return { text, prefix, suffix };
 }
 
 /**
@@ -240,6 +246,15 @@ export function setOffset(editor, caret) {
 export function getOffsetPosition(el, offset) {
   if (offset < 0) return { node: el, offset: 0 };
 
+  if (el.dataset && 'prefix' in el.dataset) {
+    const prefixLength = el.dataset.prefix.length;
+    if (offset <= prefixLength) {
+      return { node: el, offset: 0 };
+    } else {
+      offset = offset - prefixLength;
+    }
+  }
+
   for (let { node, text } of iterateNodes(el)) {
     if (text.length >= offset) {
       if (node.dataset && 'text' in node.dataset) {
@@ -256,7 +271,6 @@ export function getOffsetPosition(el, offset) {
   }
 
   if (offset > 0) {
-    // Continue to next block
     return getOffsetPosition(el.nextSibling, offset - 1);
   }
 
@@ -304,16 +318,8 @@ export function replaceSelection(editor, text = '') {
   );
 
   const firstBlockContent = editor.state[firstBlock].content;
-  let firstContentStr = '';
-  if (Array.isArray(firstBlockContent)) {
-    if (firstBlockContent.length >= 1) {
-      firstContentStr = firstBlockContent[1];
-    } else {
-      firstContentStr = firstBlockContent.length > 0 ? firstBlockContent[0] : '';
-    }
-  }
 
-  const firstLine = firstContentStr;//serializeState(firstBlockContent);
+  const firstLine = serializeState(firstBlockContent);
   const lastLine =
     firstBlock === lastBlock
       ? firstLine

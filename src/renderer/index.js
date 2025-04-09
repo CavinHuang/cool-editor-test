@@ -161,7 +161,9 @@ export default {
     return <em>{content.slice(1, -1)}</em>;
   },
   strong({ content }) {
-    return <strong>{content.slice(1, -1)}</strong>;
+    return <strong data-prefix={content[0]} data-suffix={last(content)}>
+      {content.slice(1, -1)}
+    </strong>;
   },
   link({ content: [openBrckt, text, closeBrckt, openPar, link, closePar] }) {
     return (

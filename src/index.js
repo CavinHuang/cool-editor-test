@@ -15,7 +15,7 @@ export default class DefaultEditor extends Editor {
     element.classList.add(styles.editor);
 
     const plugins = [
-      enterPlugin(),
+      enterPlugin()
       // tabPlugin(),
       // historyPlugin(),
       // highlightPlugin(),

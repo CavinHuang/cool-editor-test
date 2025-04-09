@@ -1,4 +1,4 @@
-const HEADING = /^(#{1,6}) /;
+const HEADING = /^(#{1,6})(\s+)/;
 const HR = /^(-{3,}|\*{3,}|_{3,})$/;
 const TODO_ITEM = /^(\s*)(- \[(?: |x)\])( )/;
 const ORDERED_ITEM = /^(\s*)(\d+)(\.) /;

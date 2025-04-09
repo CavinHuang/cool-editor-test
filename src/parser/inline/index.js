@@ -26,8 +26,8 @@ function text(state) {
 }
 
 const parsers = [
-  // selfcloseTag,
-  // strong,
+  selfcloseTag,
+  strong,
   // em,
   // strikethrough,
   // underline,
@@ -36,7 +36,7 @@ const parsers = [
   // code,
   // file,
   // image,
-  // tag,
+  tag,
   // link,
 
   text
