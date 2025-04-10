@@ -34,70 +34,18 @@ export function getChangeIndexes(editor, event) {
  * with parsed value of text. Keep unchanged blocks
  */
 export function getNewState(editor, from, to, text) {
-  const textBefore = editor.state
-    .slice(0, from)
-    .map((block) => serializeState(block.content).split('\n'))
-    .flat();
-  const textAfter = editor.state
-    .slice(to + 1)
-    .map((block) => serializeState(block.content).split('\n'))
-    .flat();
-
-  const newState = [];
-  const lines = text.split('\n');
-  const newLines = [...textBefore, ...lines, ...textAfter];
-
-  let lineIndex = 0;
-  let oldLineIndex = 0;
-  let preparser = editor.parser(newLines, true);
-  let block = preparser.next().value;
-
-  while (block) {
-    if (
-      lineIndex + block.length - 1 >= textBefore.length &&
-      lineIndex < textBefore.length + lines.length
-    ) {
-      // Parse the new text and move `oldLineIndex` to after the change
-      let m = 0;
-      for (const block of editor.parser(newLines.slice(lineIndex))) {
-        m += block.length;
-        newState.push(block);
-        if (m >= lines.length) break;
-      }
-      lineIndex += m;
-      oldLineIndex += editor.state
-        .slice(from, to + 1)
-        .reduce((acc, val) => acc + val.length, m - lines.length);
-      preparser = editor.parser(newLines.slice(lineIndex), true);
-      block = preparser.next().value;
-      continue;
-    }
-
-    let n = 0;
-    const oldBlock = editor.state.find((block) => {
-      const match = n === oldLineIndex;
-      n += block.length;
-      return match;
-    });
-
-    if (oldBlock && oldBlock.type === block.type) {
-      // Reuse old block
-      newState.push(oldBlock);
-      lineIndex += block.length;
-      oldLineIndex += block.length;
-      block = preparser.next().value;
-    } else {
-      // Type changed
-      const newBlock = editor.parser(newLines.slice(lineIndex)).next().value;
-      newState.push(newBlock);
-      lineIndex += newBlock.length;
-      oldLineIndex += newBlock.length;
-      preparser = editor.parser(newLines.slice(lineIndex), true);
-      block = preparser.next().value;
-    }
-  }
-
+  // --- ALWAYS use block replacement strategy ---
+  console.log('getNewState: Always using block replacement strategy.');
+  // Parse the input text into new blocks
+  const newBlocks = Array.from(editor.parser(text));
+  // Construct the new state by replacing the affected range with new blocks
+  const newState = [
+    ...editor.state.slice(0, from),
+    ...newBlocks,
+    ...editor.state.slice(to + 1)
+  ];
   return newState;
+  // --- Original text-merge logic removed ---
 }
 
 /**
@@ -317,6 +265,32 @@ export function replaceSelection(editor, text = '') {
     editor.selection
   );
 
+  // --- BEGIN MODIFICATION: Check for tables involved ---
+  let tableInvolved = false;
+  if ((editor.state[firstBlock] && editor.state[firstBlock].type === 'table') ||
+      (editor.state[lastBlock] && editor.state[lastBlock].type === 'table')) {
+    tableInvolved = true;
+  }
+
+  if (tableInvolved) {
+    console.log('replaceSelection: Table involved, using direct block replacement.');
+    // Parse the input text into new blocks
+    const newBlocks = Array.from(editor.parser(text));
+    // Construct the new state by replacing the affected range with new blocks
+    const newState = [
+      ...editor.state.slice(0, firstBlock),
+      ...newBlocks,
+      ...editor.state.slice(lastBlock + 1)
+    ];
+    // Set caret at the beginning of the first block after the replacement
+    // Note: More precise caret positioning might be needed later.
+    editor.update(newState, [firstBlock, 0]);
+    return; // Skip original logic
+  }
+  // --- END MODIFICATION ---
+
+  // --- Original replaceSelection logic (only runs if no tables are involved) ---
+  console.log('replaceSelection: No table involved, using original logic with serializeState.');
   const firstBlockContent = editor.state[firstBlock].content;
 
   const firstLine = serializeState(firstBlockContent);

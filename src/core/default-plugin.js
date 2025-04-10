@@ -18,7 +18,8 @@ function onCompositionEnd(editor, event) {
 }
 
 // 获取当前光标的上级元素
-function getRangeFoucsNode(selection, firstBlock) {
+// eslint-disable-next-line no-unused-vars
+function getRangeFoucsNode(_selection, _firstBlock) {
   const range = document.getSelection().getRangeAt(0);
   if (!range) return null;
   const commonAncestorContainer = range.commonAncestorContainer;
@@ -38,8 +39,18 @@ function onInput(editor, event) {
   if (editor.composing) return;
 
   const { firstBlockIndex, lastBlockIndex } = getChangeIndexes(editor, event);
-  const firstBlock = editor.element.children[firstBlockIndex];
 
+  // Check if any block in the change range is a table
+  for (let i = firstBlockIndex; i <= lastBlockIndex; i++) {
+    if (editor.state[i] && editor.state[i].type === 'table') {
+      console.log('Input involves table block, skipping default update.');
+      // Let browser handle contenteditable changes, prevent state corruption
+      return false;
+    }
+  }
+
+  // --- Original onInput logic proceeds only if no table is involved ---
+  const firstBlock = editor.element.children[firstBlockIndex];
   const rangeFoucsNode = getRangeFoucsNode(editor.selection, firstBlock);
   let prefix = '';
   let suffix = '';
@@ -105,6 +116,20 @@ function onBeforeDelete(editor, event, type) {
 
   if (type === 'character') {
     const nextBlock = backwards ? firstBlock - 1 : firstBlock + 1;
+
+    // Check if current or next block is a table before merging
+    const currentBlockIsTable = editor.state[firstBlock] && editor.state[firstBlock].type === 'table';
+    const nextBlockIndexIsValid = nextBlock >= 0 && nextBlock < editor.state.length;
+    const nextBlockIsTable =
+      nextBlockIndexIsValid &&
+      editor.state[nextBlock] &&
+      editor.state[nextBlock].type === 'table';
+
+    if (currentBlockIsTable || nextBlockIsTable) {
+      console.log('Boundary deletion involves table block, preventing merge.');
+      return true; // Already prevented default, just stop the merge
+    }
+
     const newText = serializeState(editor.state[nextBlock].content);
 
     editor.update(

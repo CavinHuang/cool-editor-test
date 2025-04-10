@@ -21,6 +21,25 @@ export const priorPlugin = {
       return true;
     },
 
+    // 拦截表格中的 beforeinput 删除事件
+    beforeinput(_, event) {
+      const inputType = event.inputType;
+      const isDeletion = inputType.startsWith('deleteContent') ||
+                         inputType.startsWith('deleteWord') ||
+                         inputType.startsWith('deleteSoftLine') ||
+                         inputType.startsWith('deleteHardLine');
+
+      if (isDeletion && isInTableCell()) {
+        console.log('表格预处理插件拦截到 beforeinput 删除事件:', inputType);
+        // 允许浏览器在 contenteditable 单元格内执行默认删除行为，
+        // 但阻止 defaultPlugin 处理
+        // 注意：这里可能需要更精细的控制，但先阻止 defaultPlugin
+        return true; // 返回 true 阻止 defaultPlugin
+      }
+
+      return false; // 其他情况不拦截
+    },
+
     // 拦截表格中的keydown事件
     keydown(_, event) {
       // 首先检查是否在表格内
@@ -37,6 +56,24 @@ export const priorPlugin = {
       }
 
       return false;
+    },
+
+    // 添加 compositionstart 拦截
+    compositionstart() {
+      // 检查是否在表格内
+      if (!isInTableCell()) return false;
+      console.log('表格预处理插件拦截到 compositionstart 事件');
+      // 返回true阻止defaultPlugin处理
+      return true;
+    },
+
+    // 添加 compositionend 拦截
+    compositionend() {
+      // 检查是否在表格内
+      if (!isInTableCell()) return false;
+      console.log('表格预处理插件拦截到 compositionend 事件');
+      // 返回true阻止defaultPlugin处理
+      return true;
     }
   }
 };
@@ -172,6 +209,7 @@ export default function tablePlugin() {
   let activeCell = null;
   let activeEditor = null;
   let originalContent = '';
+  let composing = false; // 添加 composing 状态
 
   // 移除之前的活动单元格编辑状态
   function clearActiveCell() {
@@ -219,6 +257,9 @@ export default function tablePlugin() {
     handlers: {
       // 拦截输入事件
       input(editor) {
+        // 如果正在使用输入法组合，则跳过
+        if (composing) return false;
+
         // 检查当前选区是否在表格内
         const selection = window.getSelection();
         if (!selection || !selection.rangeCount) return false;
@@ -258,6 +299,63 @@ export default function tablePlugin() {
 
         // 返回true表示我们已经处理了事件，编辑器应该跳过其他插件
         return true;
+      },
+
+      // 添加 compositionstart 处理器
+      // eslint-disable-next-line no-unused-vars
+      compositionstart(_editor) {
+        // 首先检查是否在表格内
+        if (!isInTableCell()) return false;
+
+        console.log('表格单元格 compositionstart 事件捕获');
+        composing = true;
+        // 可以在这里阻止默认行为，如果需要的话
+        return true; // 阻止其他插件处理
+      },
+
+      // 添加 compositionend 处理器
+      // eslint-disable-next-line no-unused-vars
+      compositionend(editor, _event) {
+        // 首先检查是否在表格内
+        if (!isInTableCell()) return false;
+
+        console.log('表格单元格 compositionend 事件捕获');
+        composing = false;
+
+        // compositionend 后手动触发一次类似 input 的处理逻辑
+        // 需要模拟 input 事件或直接调用处理逻辑
+        // 这里我们直接调用 input 处理逻辑的部分代码
+
+        const selection = window.getSelection();
+        if (!selection || !selection.rangeCount) return false;
+
+        const range = selection.getRangeAt(0);
+        const cell = findClosestCell(range.commonAncestorContainer);
+
+        if (!cell) return false;
+
+        // 获取当前内容
+        // const currentText = cell.textContent || ''; // 移除未使用的变量
+
+        // 如果还没有处于编辑模式，启用编辑模式
+        if (!activeCell || activeCell !== cell) {
+          if (activeCell) clearActiveCell();
+          activeCell = cell;
+          activeEditor = editor;
+          originalContent = activeCell.textContent || '';
+          activeCell.setAttribute('contenteditable', 'true');
+          // 不需要 focus，因为此时焦点应该已经在单元格内
+        }
+
+        // 使用 setTimeout 延迟检查，确保 DOM 更新完成
+        setTimeout(() => {
+          if (cell.textContent !== originalContent) {
+            console.log('输入法组合完成，内容已变化:', cell.textContent);
+            // 内容变化，可以在这里触发更新，或者依赖 clearActiveCell 中的逻辑
+          }
+        }, 0);
+
+        return true; // 阻止其他插件处理
       },
 
       // 处理所有键盘事件，包括方向键
@@ -355,10 +453,61 @@ export default function tablePlugin() {
           return true;
         }
 
-        // 阻止Enter键换行
+        // --- BEGIN MODIFICATION: Handle Enter at the end of the table ---
         if (event.key === 'Enter') {
-          event.preventDefault();
+          const selection = window.getSelection();
+          if (selection && selection.isCollapsed && cellElement) {
+            const tableElement = cellElement.closest('table');
+            if (tableElement) {
+              const allCells = Array.from(tableElement.querySelectorAll('td, th'));
+              const lastCell = allCells[allCells.length - 1];
+              const range = selection.getRangeAt(0);
+              const cellText = cellElement.textContent || '';
+              const textContentLength = cellText.length;
 
+              const isLastCell = cellElement === lastCell;
+              const isAtEndOfCell = range.startOffset === textContentLength;
+
+              if (isLastCell && isAtEndOfCell) {
+                console.log('Enter pressed at the end of the table.');
+                event.preventDefault();
+
+                // Find the table's index in the editor state
+                const allRenderedTables = Array.from(editor.element.querySelectorAll('.table'));
+                const domTableIndex = allRenderedTables.indexOf(tableElement);
+                let tableNodeIndex = -1;
+                let currentTableCount = 0;
+                for (let i = 0; i < editor.state.length; i++) {
+                  if (editor.state[i].type === 'table') {
+                    if (currentTableCount === domTableIndex) {
+                      tableNodeIndex = i;
+                      break;
+                    }
+                    currentTableCount++;
+                  }
+                }
+
+                if (tableNodeIndex !== -1) {
+                  // Assuming 'paragraph' type exists and empty content is []
+                  const newParagraph = { type: 'paragraph', content: [] };
+                  const newState = [
+                    ...editor.state.slice(0, tableNodeIndex + 1),
+                    newParagraph,
+                    ...editor.state.slice(tableNodeIndex + 1)
+                  ];
+                  editor.update(newState, [tableNodeIndex + 1, 0]);
+                  console.log('Inserted new paragraph after table.');
+                } else {
+                  console.error('Could not find table node index to insert paragraph after.');
+                }
+                return true; // Event handled
+              }
+            }
+          }
+          // --- END MODIFICATION ---
+
+          // --- Original Enter logic (for inside cells) ---
+          event.preventDefault();
           // 完成编辑
           clearActiveCell();
           return true;
@@ -511,6 +660,62 @@ export default function tablePlugin() {
           const startLine = findTableIndexInMarkdown(editor, table);
           updateTableInMarkdown(editor, startLine, table);
         }
+      },
+
+      // 删除整个表格
+      deleteTable(editor, tableElement) {
+        console.log('Attempting to delete table element:', tableElement);
+        // 1. Find the corresponding node index in editor.state
+        const allRenderedTables = Array.from(editor.element.querySelectorAll('.table'));
+        const domTableIndex = allRenderedTables.indexOf(tableElement);
+        if (domTableIndex === -1) {
+          console.error('Could not find the table element in the rendered DOM.');
+          return;
+        }
+
+        let tableNodeIndex = -1;
+        let currentTableCount = 0;
+        for (let i = 0; i < editor.state.length; i++) {
+          if (editor.state[i].type === 'table') {
+            if (currentTableCount === domTableIndex) {
+              tableNodeIndex = i;
+              break;
+            }
+            currentTableCount++;
+          }
+        }
+
+        if (tableNodeIndex === -1) {
+          console.error('Could not find the corresponding table node in editor state.');
+          return;
+        }
+
+        console.log('Found table node index in state:', tableNodeIndex);
+
+        // 2. Create new state by filtering out the table node
+        const newState = editor.state.filter((_, index) => index !== tableNodeIndex);
+
+        // 3. Update the editor
+        // Set caret position to the block index where the table was,
+        // clamping to the new state length if it was the last block.
+        const newCaretBlock = Math.min(
+          tableNodeIndex,
+          newState.length > 0 ? newState.length - 1 : 0
+        );
+        // Ensure console log fits within 80 characters
+        console.log('New state length:', newState.length);
+        console.log('New caret block:', newCaretBlock);
+        try {
+          editor.update(newState, [newCaretBlock, 0]);
+          console.log('Table deleted successfully.');
+          // Optionally, remove the controls div as well
+          const controls = tableElement.previousElementSibling;
+          if (controls && controls.classList.contains('table_controls')) {
+            controls.remove();
+          }
+        } catch (error) {
+          console.error('Error updating editor after table deletion:', error);
+        }
       }
     }
   };
@@ -569,21 +774,38 @@ function createTableControls(table, editor) {
     }
   };
 
+  // 添加删除表格按钮
+  const delTableBtn = document.createElement('button');
+  delTableBtn.textContent = '删除表格';
+  delTableBtn.style.color = 'red'; // Make it stand out
+  delTableBtn.onclick = (event) => {
+    event.stopPropagation(); // Prevent triggering other click listeners
+    // Add confirmation dialog
+    const confirmDelete = confirm('确定要删除整个表格吗？此操作无法撤销。');
+    if (confirmDelete) {
+      // Use the editor instance captured in the closure
+      tablePlugin().commands.deleteTable(editor, table);
+    }
+  };
+
   controls.appendChild(addRowBtn);
   controls.appendChild(addColBtn);
   controls.appendChild(delRowBtn);
   controls.appendChild(delColBtn);
+  controls.appendChild(delTableBtn); // Add the new button
 
   return controls;
 }
 
 // 查找表格在Markdown中的位置
+// 注意: 此函数可能不再精确反映状态索引，建议使用 DOM 顺序匹配
 function findTableIndexInMarkdown(editor, tableElement) {
   // 获取所有表格元素
   const tables = Array.from(editor.element.querySelectorAll('.table'));
   const tableIndex = tables.indexOf(tableElement);
 
-  // 获取Markdown内容
+  // 获取Markdown内容 (这可能与当前 editor.state 不同步)
+  // 建议直接使用 DOM 顺序匹配 editor.state
   const content = editor.value;
   const lines = content.split('\n');
 
