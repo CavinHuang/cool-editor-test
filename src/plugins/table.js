@@ -1,7 +1,196 @@
 // 表格编辑插件
 // 用于增强表格的编辑交互体验
 
+// 优先级插件 - 在defaultPlugin之前拦截表格相关事件
+export const priorPlugin = {
+  name: 'table-prior',
+  handlers: {
+    // 拦截表格输入事件
+    input() {
+      // 首先检查是否在表格内
+      console.log('表格预处理插件拦截到输入事件1');
+      if (!isInTableCell()) return false;
+      console.log('表格预处理插件拦截到输入事件2');
+      // 记录表格单元格，用于后续处理
+      const cell = getActiveTableCell();
+      if (!cell) return false;
+
+      console.log('表格预处理插件拦截到输入事件');
+
+      // 返回true阻止defaultPlugin处理
+      return true;
+    },
+
+    // 拦截表格中的keydown事件
+    keydown(_, event) {
+      // 首先检查是否在表格内
+      if (!isInTableCell()) return false;
+
+      console.log('表格预处理插件拦截到按键事件', event.key);
+
+      // 只拦截可能导致表格内容变更的键
+      if (event.key === 'Enter' ||
+          event.key === 'Tab' ||
+          event.key === 'Backspace' ||
+          event.key === 'Delete') {
+        return true;
+      }
+
+      return false;
+    }
+  }
+};
+
+// 辅助函数：检查当前选区是否在表格单元格内
+function isInTableCell() {
+  const selection = window.getSelection();
+  if (!selection || !selection.rangeCount) {
+    console.log('没有有效的选区');
+    return false;
+  }
+
+  const range = selection.getRangeAt(0);
+  console.log('选区容器类型:', range.commonAncestorContainer.nodeType);
+  console.log('选区容器:', range.commonAncestorContainer);
+
+  // 检查是否在表格内，无论层级
+  const inTable = isNodeInTable(range.commonAncestorContainer);
+  console.log('是否在表格内:', inTable);
+
+  return inTable;
+}
+
+// 新增：检查节点是否在表格内
+function isNodeInTable(node) {
+  if (!node) return false;
+
+  // 如果节点本身是表格相关元素
+  if (isTableElement(node)) return true;
+
+  // 向上查找父节点是否为表格元素
+  let current = node;
+  while (current && current.parentNode) {
+    // 如果当前节点是文本节点，获取父元素
+    if (current.nodeType === 3) { // Text node
+      current = current.parentNode;
+      continue;
+    }
+
+    if (isTableElement(current)) return true;
+    current = current.parentNode;
+  }
+
+  return false;
+}
+
+// 新增：判断节点是否为表格相关元素
+function isTableElement(node) {
+  if (!node || node.nodeType !== 1) return false;
+
+  // 确保节点是元素节点
+  const element = /** @type {Element} */ (node);
+  const tagName = element.tagName && element.tagName.toLowerCase();
+  console.log('检查节点:', tagName, element.className);
+
+  // 检查是否是表格或表格内部元素
+  return tagName === 'table' ||
+         tagName === 'thead' ||
+         tagName === 'tbody' ||
+         tagName === 'tr' ||
+         tagName === 'th' ||
+         tagName === 'td' ||
+         element.className.includes('table_cell') ||
+         element.className.includes('table_header') ||
+         element.className.includes('table');
+}
+
+// 辅助函数：获取当前激活的表格单元格
+function getActiveTableCell() {
+  const selection = window.getSelection();
+  if (!selection || !selection.rangeCount) return null;
+
+  const range = selection.getRangeAt(0);
+
+  // 尝试标准方法获取单元格
+  const standardCell = findClosestCell(range.commonAncestorContainer);
+  if (standardCell) return standardCell;
+
+  // 备用方法：向上查找直到找到TD或TH
+  let current = range.commonAncestorContainer;
+  while (current && current.parentNode) {
+    // 如果当前节点是文本节点，获取父元素
+    if (current.nodeType === 3) { // Text node
+      current = current.parentNode;
+      continue;
+    }
+
+    // 确保节点是元素节点
+    if (current.nodeType === 1) {
+      const element = /** @type {Element} */ (current);
+      const tagName = element.tagName && element.tagName.toLowerCase();
+      if (tagName === 'td' || tagName === 'th') {
+        return element;
+      }
+    }
+
+    current = current.parentNode;
+  }
+
+  return null;
+}
+
+// 辅助函数：安全地查找最近的表格单元格
+function findClosestCell(node) {
+  if (!node) return null;
+
+  try {
+    // 如果是元素节点，直接尝试closest
+    if (node.nodeType === 1) { // ELEMENT_NODE
+      if (typeof node.closest === 'function') {
+        // 扩展选择器，尝试多种可能的表格单元格类名和标签
+        const cell = node.closest('.table_cell, .table_header, td, th');
+        console.log('通过closest查找单元格:', cell);
+        return cell;
+      }
+    }
+    // 否则通过父元素查找
+    else if (node.parentElement) {
+      const cell = node.parentElement.closest('.table_cell, .table_header, td, th');
+      console.log('通过父元素查找单元格:', cell);
+      return cell;
+    }
+  } catch (e) {
+    console.error('查找表格单元格时出错:', e);
+  }
+
+  return null;
+}
+
+// 主表格插件
 export default function tablePlugin() {
+  // 跟踪当前正在编辑的单元格
+  let activeCell = null;
+  let activeEditor = null;
+  let originalContent = '';
+
+  // 移除之前的活动单元格编辑状态
+  function clearActiveCell() {
+    if (activeCell) {
+      activeCell.removeAttribute('contenteditable');
+      // 如果内容有变化，更新表格
+      if (activeCell.textContent !== originalContent && activeEditor) {
+        const table = activeCell.closest('table');
+        if (table) {
+          const tableIndex = findTableIndexInMarkdown(activeEditor, table);
+          updateTableInMarkdown(activeEditor, tableIndex, table);
+        }
+      }
+      activeCell = null;
+      activeEditor = null;
+      originalContent = '';
+    }
+  }
+
   return {
     // 插件名称
     name: 'table',
@@ -17,88 +206,227 @@ export default function tablePlugin() {
         const controls = createTableControls(table, editor);
         table.parentNode.insertBefore(controls, table);
       }, true);
+
+      // 添加全局点击事件用于取消表格编辑
+      document.addEventListener('click', (event) => {
+        if (activeCell && !activeCell.contains(event.target)) {
+          clearActiveCell();
+        }
+      });
     },
 
-    // 事件处理
-    events: {
-      // 处理单元格点击事件
-      click(event, { editor }) {
-        const cell = event.target.closest('.table_cell, .table_header');
-        if (!cell) return;
+    // 处理器 - 与编辑器调用机制兼容的格式
+    handlers: {
+      // 拦截输入事件
+      input(editor) {
+        // 检查当前选区是否在表格内
+        const selection = window.getSelection();
+        if (!selection || !selection.rangeCount) return false;
 
-        // 获取单元格当前内容
-        const currentContent = cell.innerText;
+        const range = selection.getRangeAt(0);
+        const cell = findClosestCell(range.commonAncestorContainer);
 
-        // 创建编辑模式
-        cell.setAttribute('contenteditable', 'true');
-        cell.focus();
+        if (!cell) return false;
 
-        // 记录原始表格位置，用于后续更新
-        const table = cell.closest('table');
-        const tableIndex = findTableIndexInMarkdown(editor, table);
+        console.log('表格单元格输入事件捕获');
 
-        // 添加一次性blur事件监听器
-        const onBlur = () => {
-          cell.removeAttribute('contenteditable');
+        // 我们在表格中 - 获取当前内容
+        const currentText = cell.textContent || '';
 
-          // 如果内容发生变化，更新Markdown
-          if (cell.innerText !== currentContent) {
-            updateTableInMarkdown(editor, tableIndex, table);
+        // 如果还没有处于编辑模式，启用编辑模式
+        if (!activeCell || activeCell !== cell) {
+          // 设置新的活动单元格
+          if (activeCell) clearActiveCell();
+
+          activeCell = cell;
+          activeEditor = editor;
+          originalContent = activeCell.textContent || '';
+
+          // 设置为可编辑
+          activeCell.setAttribute('contenteditable', 'true');
+          activeCell.focus();
+        }
+
+        // 更新内容 (直接使用DOM API更新，而不是依赖编辑器的更新机制)
+        setTimeout(() => {
+          // 如果内容已变化，我们记住新的内容但不立即更新源码
+          // 等到失焦时再更新，这样就不会频繁重绘表格
+          if (cell.textContent !== currentText) {
+            console.log('内容已变化:', cell.textContent);
           }
+        }, 0);
 
-          cell.removeEventListener('blur', onBlur);
-        };
-
-        cell.addEventListener('blur', onBlur);
+        // 返回true表示我们已经处理了事件，编辑器应该跳过其他插件
+        return true;
       },
 
-      // 处理键盘导航
-      keydown(event, { editor }) {
-        const cell = event.target.closest('.table_cell, .table_header');
-        if (!cell || !cell.hasAttribute('contenteditable')) return;
+      // 处理所有键盘事件，包括方向键
+      keydown(editor, event) {
+        // 首先检查选区是否在表格内
+        const selection = window.getSelection();
+        if (!selection || !selection.rangeCount) return false;
 
+        const range = selection.getRangeAt(0);
+        const cellElement = findClosestCell(range.commonAncestorContainer);
+
+        if (!cellElement) return false;
+
+        console.log('表格单元格键盘事件捕获', event.key);
+
+        // 如果这是当前活动的单元格，处理编辑
+        if (!activeCell || activeCell !== cellElement) {
+          // 清除之前的活动单元格
+          clearActiveCell();
+
+          // 设置新的活动单元格
+          activeCell = cellElement;
+          activeEditor = editor;
+          originalContent = activeCell.textContent || '';
+
+          // 设置为可编辑
+          activeCell.setAttribute('contenteditable', 'true');
+          try {
+            activeCell.focus();
+          } catch (e) {
+            console.error('无法聚焦单元格:', e);
+          }
+        }
+
+        // 处理Tab键导航
         if (event.key === 'Tab') {
           event.preventDefault();
 
-          // 找到下一个单元格
-          const row = cell.parentElement;
-          const cellIndex = Array.from(row.children).indexOf(cell);
-          let nextCell;
+          const table = cellElement.closest('table');
+          if (!table) return true;
+
+          const row = cellElement.parentElement;
+          if (!row) return true;
+
+          const allRows = Array.from(table.querySelectorAll('tr'));
+          const rowIndex = allRows.indexOf(row);
+          const cellIndex = Array.from(row.children || []).indexOf(cellElement);
+
+          let nextCell = null;
 
           if (event.shiftKey) {
             // 上一个单元格
-            if (cellIndex > 0) {
+            if (cellIndex > 0 && row.children) {
               nextCell = row.children[cellIndex - 1];
-            } else {
+            } else if (rowIndex > 0) {
               // 上一行最后一个单元格
-              const prevRow = row.previousElementSibling;
-              if (prevRow) {
+              const prevRow = allRows[rowIndex - 1];
+              if (prevRow && prevRow.lastElementChild) {
                 nextCell = prevRow.lastElementChild;
               }
             }
           } else {
             // 下一个单元格
-            if (cellIndex < row.children.length - 1) {
+            if (row.children && cellIndex < row.children.length - 1) {
               nextCell = row.children[cellIndex + 1];
-            } else {
+            } else if (rowIndex < allRows.length - 1) {
               // 下一行第一个单元格
-              const nextRow = row.nextElementSibling;
-              if (nextRow) {
+              const nextRow = allRows[rowIndex + 1];
+              if (nextRow && nextRow.firstElementChild) {
                 nextCell = nextRow.firstElementChild;
               }
             }
           }
 
           if (nextCell) {
-            // 把当前单元格的变更应用到Markdown
-            const table = cell.closest('table');
-            updateTableInMarkdown(editor, findTableIndexInMarkdown(editor, table), table);
+            // 更新当前单元格的变更
+            const tableIndex = findTableIndexInMarkdown(editor, table);
+            updateTableInMarkdown(editor, tableIndex, table);
 
-            // 聚焦到下一个单元格
-            nextCell.setAttribute('contenteditable', 'true');
-            nextCell.focus();
+            // 清除当前活动单元格
+            clearActiveCell();
+
+            // 激活新单元格
+            activeCell = nextCell;
+            activeEditor = editor;
+            originalContent = activeCell.textContent || '';
+            activeCell.setAttribute('contenteditable', 'true');
+            try {
+              activeCell.focus();
+            } catch (e) {
+              console.error('无法聚焦单元格:', e);
+            }
           }
+
+          return true;
         }
+
+        // 阻止Enter键换行
+        if (event.key === 'Enter') {
+          event.preventDefault();
+
+          // 完成编辑
+          clearActiveCell();
+          return true;
+        }
+
+        // 允许其他按键通过，如方向键、删除键等
+        return false;
+      },
+
+      // 选择变化事件，用于检测选区进入表格
+      selectionchange() {
+        // 由于这个事件触发频率高，首先检查是否已有活动单元格
+        if (activeCell) return false;
+
+        const selection = window.getSelection();
+        if (!selection || !selection.rangeCount) return false;
+
+        const range = selection.getRangeAt(0);
+        const cellElement = findClosestCell(range.commonAncestorContainer);
+
+        if (!cellElement) return false;
+
+        // 捕获到表格单元格，但不立即设置编辑状态
+        // 等待用户双击或开始输入
+        return false;
+      },
+
+      // 双击事件，用于快速进入编辑模式
+      dblclick(editor) {
+        const selection = window.getSelection();
+        if (!selection || !selection.rangeCount) return false;
+
+        const range = selection.getRangeAt(0);
+        const cellElement = findClosestCell(range.commonAncestorContainer);
+
+        if (!cellElement) return false;
+
+        console.log('双击表格单元格');
+
+        // 清除之前的活动单元格
+        clearActiveCell();
+
+        // 设置新的活动单元格
+        activeCell = cellElement;
+        activeEditor = editor;
+        originalContent = activeCell.textContent || '';
+
+        // 设置为可编辑
+        activeCell.setAttribute('contenteditable', 'true');
+        try {
+          activeCell.focus();
+        } catch (e) {
+          console.error('无法聚焦单元格:', e);
+        }
+
+        return true;
+      },
+
+      // 处理点击事件，用于检测表格工具栏操作
+      click(editor, event) {
+        // 查看是否点击的是表格控制按钮
+        const button = event.target.closest('.table_controls button');
+        if (button) {
+          // 已经在按钮的onclick中处理
+          return true;
+        }
+
+        return false;
       }
     },
 
@@ -113,7 +441,7 @@ export default function tablePlugin() {
 
         // 复制最后一行的单元格结构
         const cells = lastRow.querySelectorAll('td');
-        cells.forEach((cell, index) => {
+        cells.forEach((cell) => {
           const newCell = document.createElement('td');
           newCell.className = 'table_cell';
           newCell.style.textAlign = cell.style.textAlign;
@@ -122,7 +450,8 @@ export default function tablePlugin() {
         });
 
         tbody.appendChild(newRow);
-        updateTableInMarkdown(editor, findTableIndexInMarkdown(editor, table), table);
+        const startLine = findTableIndexInMarkdown(editor, table);
+        updateTableInMarkdown(editor, startLine, table);
 
         return newRow;
       },
@@ -145,7 +474,8 @@ export default function tablePlugin() {
           row.appendChild(cell);
         });
 
-        updateTableInMarkdown(editor, findTableIndexInMarkdown(editor, table), table);
+        const startLine = findTableIndexInMarkdown(editor, table);
+        updateTableInMarkdown(editor, startLine, table);
       },
 
       // 删除行
@@ -155,7 +485,8 @@ export default function tablePlugin() {
 
         if (rowIndex >= 0 && rowIndex < rows.length) {
           tbody.removeChild(rows[rowIndex]);
-          updateTableInMarkdown(editor, findTableIndexInMarkdown(editor, table), table);
+          const startLine = findTableIndexInMarkdown(editor, table);
+          updateTableInMarkdown(editor, startLine, table);
         }
       },
 
@@ -177,7 +508,8 @@ export default function tablePlugin() {
             }
           });
 
-          updateTableInMarkdown(editor, findTableIndexInMarkdown(editor, table), table);
+          const startLine = findTableIndexInMarkdown(editor, table);
+          updateTableInMarkdown(editor, startLine, table);
         }
       }
     }
@@ -252,7 +584,7 @@ function findTableIndexInMarkdown(editor, tableElement) {
   const tableIndex = tables.indexOf(tableElement);
 
   // 获取Markdown内容
-  const content = editor.getValue();
+  const content = editor.value;
   const lines = content.split('\n');
 
   // 查找第tableIndex个表格在源码中的位置
@@ -279,12 +611,23 @@ function findTableIndexInMarkdown(editor, tableElement) {
 
 // 更新表格Markdown源码
 function updateTableInMarkdown(editor, startLine, tableElement) {
-  if (startLine === -1) return;
+  if (startLine === -1) {
+    console.warn('无法找到表格在Markdown中的位置');
+    return;
+  }
+
+  if (!tableElement || !tableElement.matches('table')) {
+    console.error('传入了无效的表格元素:', tableElement);
+    return;
+  }
 
   // 获取当前表格在DOM中的位置
   const allTables = Array.from(editor.element.querySelectorAll('table'));
   const tablePos = allTables.indexOf(tableElement);
-  if (tablePos === -1) return;
+  if (tablePos === -1) {
+    console.error('在DOM中找不到指定的表格元素');
+    return;
+  }
 
   // 找到表格对应的状态节点
   let tableNodeIndex = -1;
@@ -326,9 +669,44 @@ function updateTableInMarkdown(editor, startLine, tableElement) {
       return;
     }
 
+    console.log('从Markdown解析的表格节点:', parsedTableNode);
     // 使用Markdown解析的节点
     tableNode = parsedTableNode;
   }
+
+  // 再次检查确保tableNode不为null
+  if (!tableNode) {
+    console.error('无法生成有效的表格节点');
+    return;
+  }
+
+  // 确保节点类型正确
+  if (tableNode.type !== 'table') {
+    console.error('生成的节点类型不是table:', tableNode);
+    return;
+  }
+
+  // 确认节点结构正确
+  if (!tableNode.content || !Array.isArray(tableNode.content)) {
+    console.error('表格节点缺少content数组:', tableNode);
+    // 尝试修复结构
+    if (tableNode.cells && Array.isArray(tableNode.cells)) {
+      console.log('尝试从cells修复节点结构');
+      // 从cells结构提取内容
+      const headers = tableNode.cells[0].map(cell => cell.content);
+      const aligns = tableNode.cells[0].map(cell => cell.align || 'left');
+      const rows = tableNode.cells.slice(1).map(row =>
+        row.map(cell => cell.content)
+      );
+
+      tableNode = {
+        type: 'table',
+        content: [headers, aligns, ...rows]
+      };
+    }
+  }
+
+  console.log('最终表格节点结构:', JSON.stringify(tableNode));
 
   // 替换状态中的表格节点，而不是整个编辑器内容
   const newState = [...editor.state];
@@ -400,31 +778,14 @@ function generateTableNodeFromDOM(tableElement) {
       )
       .filter(row => row.some(cell => cell !== '')); // 过滤空行
 
-    // 创建表格节点内容
-    const cells = [];
-
-    // 添加表头行
-    const headerRow = headerCells.map((text, colIndex) => ({
-      type: 'th',
-      align: aligns[colIndex],
-      content: text
-    }));
-    cells.push(headerRow);
-
-    // 添加数据行
-    rows.forEach(row => {
-      const rowCells = row.map((text, colIndex) => ({
-        type: 'td',
-        align: aligns[colIndex],
-        content: text
-      }));
-      cells.push(rowCells);
-    });
-
-    // 创建表格节点
+    // 创建表格节点 - 使用content字段而非cells
     return {
       type: 'table',
-      cells: cells
+      content: [
+        headerCells,  // 表头行
+        aligns,       // 对齐行
+        ...rows       // 数据行
+      ]
     };
   } catch (error) {
     console.error('从DOM构建表格节点时出错:', error);

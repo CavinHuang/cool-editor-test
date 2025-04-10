@@ -5,6 +5,7 @@ import firefoxPlugin from './firefox.js';
 import androidPlugin from './android.js';
 import { safari, firefox } from './user-agent.js';
 import { h } from '../renderer/helpers.js';
+import { priorPlugin } from '../plugins/table.js';
 
 function toDOM(renderer, node) {
   if (typeof node === 'string') return node;
@@ -155,6 +156,7 @@ export default class Editor {
     this.plugins = [
       firefoxPlugin,
       androidPlugin,
+      priorPlugin,
       defaultPlugin,
       ...plugins
     ].filter(Boolean);
@@ -294,5 +296,10 @@ export default class Editor {
 
   destroy() {
     changeHandlers(this, 'remove');
+  }
+
+  // 选择变化事件，用于检测选区进入表格
+  selectionchange() {
+    // 逻辑保持不变
   }
 }
