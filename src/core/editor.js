@@ -308,7 +308,8 @@ export default class Editor {
   }
 
   // 选择变化事件，用于检测选区进入表格
-  selectionchange() {
-    // 逻辑保持不变
+  selectionchange(event) {
+    // 调用插件的 selectionchange 处理器
+    callPlugins(this, ['handlers', 'selectionchange'], event);
   }
 }
