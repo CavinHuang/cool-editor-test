@@ -168,23 +168,65 @@ export function getOffset(parent, target, offset) {
  * @param {[Number, Number]|{ anchor: [Number, Number], focus: [Number, Number] }} caret
  */
 export function setOffset(editor, caret) {
-  const [anchorBlock, anchorOffset] = caret.anchor || caret;
-  const [focusBlock, focusOffset] = caret.focus || caret;
+  try {
+    // 安全检查：确保编辑器和元素存在
+    if (!editor || !editor.element) {
+      console.warn('setOffset: Editor or editor.element is missing');
+      return;
+    }
 
-  const startEl = editor.element.children[anchorBlock];
-  const endEl = editor.element.children[focusBlock];
+    const [anchorBlock, anchorOffset] = caret.anchor || caret;
+    const [focusBlock, focusOffset] = caret.focus || caret;
 
-  const selection = editor.element.getRootNode().getSelection();
-  selection.removeAllRanges();
-  const range = document.createRange();
+    // 安全检查：确保块索引有效
+    if (anchorBlock < 0 || anchorBlock >= editor.element.children.length ||
+        focusBlock < 0 || focusBlock >= editor.element.children.length) {
+      console.warn(`setOffset: Block indices out of range - anchor: ${anchorBlock}, focus: ${focusBlock}, children: ${editor.element.children.length}`);
+      return;
+    }
 
-  const anchorPosition = getOffsetPosition(startEl, anchorOffset);
-  range.setStart(anchorPosition.node, anchorPosition.offset);
-  selection.addRange(range);
+    const startEl = editor.element.children[anchorBlock];
+    const endEl = editor.element.children[focusBlock];
 
-  if (anchorBlock !== focusBlock || anchorOffset !== focusOffset) {
-    const focusPosition = getOffsetPosition(endEl, focusOffset);
-    selection.extend(focusPosition.node, focusPosition.offset);
+    // 安全检查：确保元素存在
+    if (!startEl || !endEl) {
+      console.warn(`setOffset: Start or end element is missing - startEl: ${!!startEl}, endEl: ${!!endEl}`);
+      return;
+    }
+
+    const selection = editor.element.getRootNode().getSelection();
+    if (!selection) {
+      console.warn('setOffset: Selection is missing');
+      return;
+    }
+
+    selection.removeAllRanges();
+    const range = document.createRange();
+
+    // 获取位置并安全处理
+    const anchorPosition = getOffsetPosition(startEl, anchorOffset);
+    if (!anchorPosition || !anchorPosition.node) {
+      console.warn('setOffset: Could not get anchor position');
+      return;
+    }
+
+    try {
+      range.setStart(anchorPosition.node, anchorPosition.offset);
+      selection.addRange(range);
+
+      if (anchorBlock !== focusBlock || anchorOffset !== focusOffset) {
+        const focusPosition = getOffsetPosition(endEl, focusOffset);
+        if (focusPosition && focusPosition.node) {
+          selection.extend(focusPosition.node, focusPosition.offset);
+        } else {
+          console.warn('setOffset: Could not get focus position');
+        }
+      }
+    } catch (error) {
+      console.error('Error setting range:', error);
+    }
+  } catch (error) {
+    console.error('Error in setOffset:', error);
   }
 }
 
@@ -192,8 +234,15 @@ export function setOffset(editor, caret) {
  * Find node and remaining offset for caret position
  */
 export function getOffsetPosition(el, offset) {
+  // 安全检查：如果元素为空，返回一个默认位置
+  if (!el) {
+    console.warn('getOffsetPosition: Element is null or undefined, returning default position');
+    return { node: document.body, offset: 0 };
+  }
+
   if (offset < 0) return { node: el, offset: 0 };
 
+  // 安全检查：确保dataset存在
   if (el.dataset && 'prefix' in el.dataset) {
     const prefixLength = el.dataset.prefix.length;
     if (offset <= prefixLength) {
@@ -203,23 +252,42 @@ export function getOffsetPosition(el, offset) {
     }
   }
 
-  for (let { node, text } of iterateNodes(el)) {
-    if (text.length >= offset) {
-      if (node.dataset && 'text' in node.dataset) {
-        const prevOffset = offset;
-        offset = Array.from(node.parentNode.childNodes).indexOf(node);
-        if (prevOffset >= text.length) offset++;
-        node = node.parentNode;
+  // 安全检查：确保可以迭代节点
+  try {
+    for (let { node, text } of iterateNodes(el)) {
+      // 安全检查：确保node不为空
+      if (!node) continue;
+
+      if (text.length >= offset) {
+        // 安全检查：确保dataset存在
+        if (node.dataset && 'text' in node.dataset) {
+          const prevOffset = offset;
+          // 安全检查：确保parentNode存在且包含childNodes
+          if (node.parentNode && node.parentNode.childNodes) {
+            offset = Array.from(node.parentNode.childNodes).indexOf(node);
+            if (prevOffset >= text.length) offset++;
+            node = node.parentNode;
+          }
+        }
+
+        return { node, offset };
       }
 
-      return { node, offset };
+      offset -= text.length;
     }
-
-    offset -= text.length;
+  } catch (error) {
+    console.error('Error in getOffsetPosition iterating nodes:', error);
+    return { node: el, offset: 0 };
   }
 
-  if (offset > 0) {
-    return getOffsetPosition(el.nextSibling, offset - 1);
+  // 安全检查：确保nextSibling存在
+  if (offset > 0 && el.nextSibling) {
+    try {
+      return getOffsetPosition(el.nextSibling, offset - 1);
+    } catch (error) {
+      console.error('Error in getOffsetPosition recursive call:', error);
+      return { node: el, offset: 0 };
+    }
   }
 
   return { node: el, offset: 0 };

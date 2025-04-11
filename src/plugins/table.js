@@ -58,6 +58,72 @@ export const priorPlugin = {
       return false;
     },
 
+    // 也拦截keypress事件，确保在表格内的Enter事件不被其他插件处理
+    keypress(editor, event) {
+      // 先检查是否在表格内
+      if (isInTableCell()) {
+        // 特别处理Enter键
+        if (event.which === 13) {
+          console.log('表格预处理插件拦截到keypress Enter事件');
+          return true; // 阻止enterPlugin处理
+        }
+        return false; // 表格内但非Enter键，不拦截
+      }
+
+      // 检查是否在表格末尾
+      if (event.which === 13 && isAtTableEnd()) {
+        console.log('表格预处理插件拦截到表格末尾的Enter键');
+
+        // 获取最后一个表格
+        const tables = Array.from(editor.element.querySelectorAll('.table'));
+        if (tables.length === 0) return false;
+        const lastTable = tables[tables.length - 1];
+
+        // 查找表格在编辑器状态中的索引
+        let tableNodeIndex = -1;
+        let tableCount = 0;
+
+        for (let i = 0; i < editor.state.length; i++) {
+          if (editor.state[i] && editor.state[i].type === 'table') {
+            if (tableCount === tables.length - 1) {
+              tableNodeIndex = i;
+              break;
+            }
+            tableCount++;
+          }
+        }
+
+        if (tableNodeIndex !== -1) {
+          event.preventDefault();
+
+          try {
+            // 创建新段落
+            const newParagraph = {
+              type: 'paragraph',
+              content: []
+            };
+
+            // 插入新段落
+            const newState = [
+              ...editor.state.slice(0, tableNodeIndex + 1),
+              newParagraph,
+              ...editor.state.slice(tableNodeIndex + 1)
+            ];
+
+            // 更新编辑器状态
+            editor.update(newState, [tableNodeIndex + 1, 0]);
+            console.log('表格末尾插入了新段落');
+          } catch (error) {
+            console.error('表格末尾插入段落出错:', error);
+          }
+
+          return true;
+        }
+      }
+
+      return false; // 其他情况不拦截
+    },
+
     // 添加 compositionstart 拦截
     compositionstart() {
       // 检查是否在表格内
@@ -95,6 +161,75 @@ function isInTableCell() {
   console.log('是否在表格内:', inTable);
 
   return inTable;
+}
+
+// 检查当前位置是否在表格最后一个单元格的结尾
+function isAtTableEnd() {
+  try {
+    const selection = window.getSelection();
+    if (!selection || !selection.rangeCount) return false;
+
+    // 获取所有表格
+    const tables = Array.from(document.querySelectorAll('.table'));
+    if (tables.length === 0) return false;
+
+    // 获取最后一个表格
+    const lastTable = tables[tables.length - 1];
+
+    // 获取最后一个表格的所有单元格
+    const cells = Array.from(lastTable.querySelectorAll('td, th'));
+    if (cells.length === 0) return false;
+
+    // 获取最后一个单元格
+    const lastCell = cells[cells.length - 1];
+
+    // 获取光标范围
+    const range = selection.getRangeAt(0);
+
+    // 获取光标位置周围的元素
+    let node = range.startContainer;
+
+    // 检查是否在编辑器根元素上
+    if (node.nodeType === 1) { // 如果是元素节点
+      const element = /** @type {Element} */ (node);
+      if (element.id === 'editor') {
+        // 光标可能在表格之后，检查光标位置
+        const editorChildren = Array.from(node.childNodes);
+        const caretIndex = range.startOffset;
+
+        if (caretIndex > 0 && caretIndex <= editorChildren.length) {
+          const prevElement = editorChildren[caretIndex - 1];
+          if (prevElement &&
+              (prevElement === lastTable ||
+              (prevElement.nodeType === 1 && prevElement.contains(lastTable)))) {
+            console.log('光标紧跟在表格之后');
+            return true;
+          }
+        }
+      }
+    }
+
+    // 光标在表格内部的检查逻辑
+    while (node) {
+      // 如果节点是最后一个单元格
+      if (node === lastCell) {
+        // 并且光标在单元格内容末尾
+        const textLength = lastCell.textContent ? lastCell.textContent.length : 0;
+        if (range.startOffset === textLength) {
+          console.log('光标在表格最后一个单元格的末尾');
+          return true;
+        }
+      }
+
+      if (!node.parentNode) break;
+      node = node.parentNode;
+    }
+
+    return false;
+  } catch (error) {
+    console.error('检查表格末尾位置时出错:', error);
+    return false;
+  }
 }
 
 // 新增：检查节点是否在表格内
@@ -210,6 +345,9 @@ export default function tablePlugin() {
   let activeEditor = null;
   let originalContent = '';
   let composing = false; // 添加 composing 状态
+  let processingEvent = false; // 添加事件处理中标志，防止重复处理
+  let tableEnterHandled = false; // 标记表格的Enter键是否已处理
+  let enterKeyInsertedParagraph = false; // 新增：标记是否已插入段落
 
   // 移除之前的活动单元格编辑状态
   function clearActiveCell() {
@@ -227,6 +365,15 @@ export default function tablePlugin() {
       activeEditor = null;
       originalContent = '';
     }
+  }
+
+  // 重置表格Enter处理状态
+  function resetTableEnterStatus() {
+    setTimeout(() => {
+      tableEnterHandled = false;
+      processingEvent = false;
+      enterKeyInsertedParagraph = false;
+    }, 10);
   }
 
   return {
@@ -251,6 +398,14 @@ export default function tablePlugin() {
           clearActiveCell();
         }
       });
+
+      // 添加全局keypress拦截，用于为enterPlugin提供状态判断
+      document.addEventListener('keypress', (event) => {
+        if (event.which === 13 && isInTableCell()) {
+          // 标记表格的Enter键已处理，这样enterPlugin可以跳过处理
+          tableEnterHandled = true;
+        }
+      }, true); // 使用捕获阶段，先于冒泡阶段处理
     },
 
     // 处理器 - 与编辑器调用机制兼容的格式
@@ -360,160 +515,193 @@ export default function tablePlugin() {
 
       // 处理所有键盘事件，包括方向键
       keydown(editor, event) {
-        // 首先检查选区是否在表格内
-        const selection = window.getSelection();
-        if (!selection || !selection.rangeCount) return false;
-
-        const range = selection.getRangeAt(0);
-        const cellElement = findClosestCell(range.commonAncestorContainer);
-
-        if (!cellElement) return false;
-
-        console.log('表格单元格键盘事件捕获', event.key);
-
-        // 如果这是当前活动的单元格，处理编辑
-        if (!activeCell || activeCell !== cellElement) {
-          // 清除之前的活动单元格
-          clearActiveCell();
-
-          // 设置新的活动单元格
-          activeCell = cellElement;
-          activeEditor = editor;
-          originalContent = activeCell.textContent || '';
-
-          // 设置为可编辑
-          activeCell.setAttribute('contenteditable', 'true');
-          try {
-            activeCell.focus();
-          } catch (e) {
-            console.error('无法聚焦单元格:', e);
-          }
-        }
-
-        // 处理Tab键导航
-        if (event.key === 'Tab') {
-          event.preventDefault();
-
-          const table = cellElement.closest('table');
-          if (!table) return true;
-
-          const row = cellElement.parentElement;
-          if (!row) return true;
-
-          const allRows = Array.from(table.querySelectorAll('tr'));
-          const rowIndex = allRows.indexOf(row);
-          const cellIndex = Array.from(row.children || []).indexOf(cellElement);
-
-          let nextCell = null;
-
-          if (event.shiftKey) {
-            // 上一个单元格
-            if (cellIndex > 0 && row.children) {
-              nextCell = row.children[cellIndex - 1];
-            } else if (rowIndex > 0) {
-              // 上一行最后一个单元格
-              const prevRow = allRows[rowIndex - 1];
-              if (prevRow && prevRow.lastElementChild) {
-                nextCell = prevRow.lastElementChild;
-              }
-            }
-          } else {
-            // 下一个单元格
-            if (row.children && cellIndex < row.children.length - 1) {
-              nextCell = row.children[cellIndex + 1];
-            } else if (rowIndex < allRows.length - 1) {
-              // 下一行第一个单元格
-              const nextRow = allRows[rowIndex + 1];
-              if (nextRow && nextRow.firstElementChild) {
-                nextCell = nextRow.firstElementChild;
-              }
-            }
-          }
-
-          if (nextCell) {
-            // 更新当前单元格的变更
-            const tableIndex = findTableIndexInMarkdown(editor, table);
-            updateTableInMarkdown(editor, tableIndex, table);
-
-            // 清除当前活动单元格
-            clearActiveCell();
-
-            // 激活新单元格
-            activeCell = nextCell;
-            activeEditor = editor;
-            originalContent = activeCell.textContent || '';
-            activeCell.setAttribute('contenteditable', 'true');
-            try {
-              activeCell.focus();
-            } catch (e) {
-              console.error('无法聚焦单元格:', e);
-            }
-          }
-
+        // 防止重复处理
+        if (processingEvent) {
+          console.log('键盘事件已在处理中，跳过...');
           return true;
         }
 
-        // --- BEGIN MODIFICATION: Handle Enter at the end of the table ---
+        // 如果已经插入了段落，跳过处理
+        if (enterKeyInsertedParagraph && event.key === 'Enter') {
+          console.log('已经插入了段落，跳过重复处理Enter键');
+          return false;
+        }
+
+        // 特别处理Enter键在表格内的情况 - 优化捕获逻辑
         if (event.key === 'Enter') {
-          const selection = window.getSelection();
-          if (selection && selection.isCollapsed && cellElement) {
-            const tableElement = cellElement.closest('table');
-            if (tableElement) {
-              const allCells = Array.from(tableElement.querySelectorAll('td, th'));
-              const lastCell = allCells[allCells.length - 1];
-              const range = selection.getRangeAt(0);
-              const cellText = cellElement.textContent || '';
-              const textContentLength = cellText.length;
+          try {
+            processingEvent = true; // 标记开始处理事件
 
-              const isLastCell = cellElement === lastCell;
-              const isAtEndOfCell = range.startOffset === textContentLength;
+            // 首先直接检查是否在表格单元格内
+            const selection = window.getSelection();
+            if (!selection || !selection.rangeCount) {
+              processingEvent = false;
+              return false;
+            }
 
-              if (isLastCell && isAtEndOfCell) {
-                console.log('Enter pressed at the end of the table.');
-                event.preventDefault();
+            const range = selection.getRangeAt(0);
 
-                // Find the table's index in the editor state
-                const allRenderedTables = Array.from(editor.element.querySelectorAll('.table'));
-                const domTableIndex = allRenderedTables.indexOf(tableElement);
-                let tableNodeIndex = -1;
-                let currentTableCount = 0;
-                for (let i = 0; i < editor.state.length; i++) {
-                  if (editor.state[i].type === 'table') {
-                    if (currentTableCount === domTableIndex) {
-                      tableNodeIndex = i;
-                      break;
+            // --- 情况1: 检查光标是否在表格单元格内 ---
+            const cellElement = findClosestCell(range.commonAncestorContainer);
+            if (cellElement) {
+              console.log('Enter键在表格单元格内按下');
+
+              // 设置新的活动单元格
+              if (!activeCell || activeCell !== cellElement) {
+                // 清除之前的活动单元格
+                clearActiveCell();
+
+                activeCell = cellElement;
+                activeEditor = editor;
+                originalContent = activeCell.textContent || '';
+
+                // 设置为可编辑
+                activeCell.setAttribute('contenteditable', 'true');
+                try {
+                  activeCell.focus();
+                } catch (e) {
+                  console.error('无法聚焦单元格:', e);
+                }
+              }
+
+              // 检查是否是表格最后一个单元格
+              const tableElement = cellElement.closest('table');
+              if (tableElement) {
+                const allCells = Array.from(tableElement.querySelectorAll('td, th'));
+                const lastCell = allCells[allCells.length - 1];
+
+                // 获取文本内容长度
+                const cellText = cellElement.textContent || '';
+                const textContentLength = cellText.length;
+
+                const isLastCell = cellElement === lastCell;
+                const isAtEndOfCell = range.startOffset === textContentLength;
+
+                // 如果是最后一个单元格的末尾，插入新段落
+                if (isLastCell && isAtEndOfCell && !enterKeyInsertedParagraph) {
+                  console.log('Enter键在表格最后一个单元格末尾按下');
+                  event.preventDefault();
+
+                  // 设置标志
+                  tableEnterHandled = true;
+                  enterKeyInsertedParagraph = true;
+
+                  // 找出表格在编辑器状态中的位置
+                  let tableNodeIndex = findTableNodeIndex(editor, tableElement);
+
+                  if (tableNodeIndex !== -1) {
+                    try {
+                      // 确保新段落正确初始化
+                      const newParagraph = {
+                        type: 'paragraph',
+                        content: []
+                      };
+
+                      // 创建新状态
+                      const newState = [
+                        ...editor.state.slice(0, tableNodeIndex + 1),
+                        newParagraph,
+                        ...editor.state.slice(tableNodeIndex + 1)
+                      ];
+
+                      // 先清除活动单元格状态
+                      clearActiveCell();
+
+                      // 更新编辑器状态，将光标定位到新段落
+                      editor.update(newState, [tableNodeIndex + 1, 0]);
+                      console.log('成功在表格后插入新段落');
+                    } catch (error) {
+                      console.error('插入段落时出错:', error);
+                      enterKeyInsertedParagraph = false;
                     }
-                    currentTableCount++;
+                  } else {
+                    console.error('找不到表格在编辑器状态中的位置');
+                    enterKeyInsertedParagraph = false;
+                  }
+
+                  // 重置处理状态
+                  resetTableEnterStatus();
+                  return true;
+                }
+              }
+
+              // 普通单元格内Enter，完成编辑
+              event.preventDefault();
+              clearActiveCell();
+              resetTableEnterStatus();
+              return true;
+            }
+
+            // --- 情况2: 检查光标是否紧跟在表格后面 ---
+            // 这种情况可能发生在用户刚用鼠标点击表格后面空白处
+            if (range.startContainer.nodeType === 1 && !enterKeyInsertedParagraph) { // 元素节点
+              const containerElement = /** @type {Element} */ (range.startContainer);
+              if (containerElement.id === 'editor') {
+                // 光标在编辑器根元素上，检查是否在表格后
+                const editorChildren = Array.from(containerElement.childNodes);
+                const caretIndex = range.startOffset;
+
+                if (caretIndex > 0 && caretIndex <= editorChildren.length) {
+                  const prevNode = editorChildren[caretIndex - 1];
+
+                  // 检查前一个节点是否是表格
+                  if (prevNode && prevNode.nodeType === 1) {
+                    const prevElement = /** @type {Element} */ (prevNode);
+                    if (prevElement.classList && prevElement.classList.contains('table')) {
+                      console.log('Enter键在表格后面的空白处按下');
+
+                      // 设置标志
+                      tableEnterHandled = true;
+                      enterKeyInsertedParagraph = true;
+
+                      // 找出表格在编辑器状态中的位置
+                      let tableNodeIndex = findTableNodeIndex(editor, prevElement);
+
+                      if (tableNodeIndex !== -1) {
+                        event.preventDefault();
+
+                        try {
+                          // 创建新段落
+                          const newParagraph = {
+                            type: 'paragraph',
+                            content: []
+                          };
+
+                          // 插入新段落
+                          const newState = [
+                            ...editor.state.slice(0, tableNodeIndex + 1),
+                            newParagraph,
+                            ...editor.state.slice(tableNodeIndex + 1)
+                          ];
+
+                          // 更新编辑器状态
+                          editor.update(newState, [tableNodeIndex + 1, 0]);
+                          console.log('在表格后成功插入空段落');
+                        } catch (error) {
+                          console.error('在表格后插入段落失败:', error);
+                          enterKeyInsertedParagraph = false;
+                        }
+
+                        // 重置处理状态
+                        resetTableEnterStatus();
+                        return true;
+                      }
+                    }
                   }
                 }
-
-                if (tableNodeIndex !== -1) {
-                  // Assuming 'paragraph' type exists and empty content is []
-                  const newParagraph = { type: 'paragraph', content: [] };
-                  const newState = [
-                    ...editor.state.slice(0, tableNodeIndex + 1),
-                    newParagraph,
-                    ...editor.state.slice(tableNodeIndex + 1)
-                  ];
-                  editor.update(newState, [tableNodeIndex + 1, 0]);
-                  console.log('Inserted new paragraph after table.');
-                } else {
-                  console.error('Could not find table node index to insert paragraph after.');
-                }
-                return true; // Event handled
               }
             }
-          }
-          // --- END MODIFICATION ---
 
-          // --- Original Enter logic (for inside cells) ---
-          event.preventDefault();
-          // 完成编辑
-          clearActiveCell();
-          return true;
+          } catch (error) {
+            console.error('处理Enter键时出错:', error);
+            enterKeyInsertedParagraph = false;
+          }
+
+          // 重置处理状态
+          resetTableEnterStatus();
         }
 
-        // 允许其他按键通过，如方向键、删除键等
+        // 其他按键不做特殊处理
         return false;
       },
 
@@ -717,6 +905,11 @@ export default function tablePlugin() {
           console.error('Error updating editor after table deletion:', error);
         }
       }
+    },
+
+    // 添加新方法：检查表格Enter是否已处理
+    isTableEnterHandled() {
+      return tableEnterHandled || enterKeyInsertedParagraph;
     }
   };
 }
@@ -1041,4 +1234,32 @@ function generateTableMarkdown(tableElement) {
   });
 
   return markdown.trim();
+}
+
+// 助手函数：根据表格元素查找其在状态中的索引
+function findTableNodeIndex(editor, tableElement) {
+  if (!editor || !editor.state || !tableElement) return -1;
+
+  try {
+    // 获取所有表格
+    const tables = Array.from(editor.element.querySelectorAll('.table'));
+    const tablePosition = tables.indexOf(tableElement);
+
+    if (tablePosition === -1) return -1;
+
+    // 查找对应位置的表格节点
+    let tableCount = 0;
+    for (let i = 0; i < editor.state.length; i++) {
+      if (editor.state[i] && editor.state[i].type === 'table') {
+        if (tableCount === tablePosition) {
+          return i;
+        }
+        tableCount++;
+      }
+    }
+  } catch (error) {
+    console.error('查找表格节点索引时出错:', error);
+  }
+
+  return -1;
 }

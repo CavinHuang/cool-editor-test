@@ -137,9 +137,18 @@ function getPath(obj, path) {
  * Call plugins until one returns true
  */
 function callPlugins(editor, path, ...args) {
-  for (const plugin of editor.plugins) {
-    const handler = getPath(plugin, path);
-    if (handler && handler(editor, ...args)) break;
+  try {
+    for (const plugin of editor.plugins) {
+      try {
+        const handler = getPath(plugin, path);
+        if (handler && handler(editor, ...args)) break;
+      } catch (pluginError) {
+        console.error(`插件 ${plugin.name || '未命名'} 处理 ${path.join('.')} 事件时出错:`, pluginError);
+        // 继续执行其他插件，但跳过当前出错的插件
+      }
+    }
+  } catch (error) {
+    console.error(`调用插件 ${path.join('.')} 时发生错误:`, error);
   }
 }
 
